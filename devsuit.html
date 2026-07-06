@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevSuite Pro</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ═══ RESET & BASE ═══ */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg-deep: #080c14;
+      --bg-card: #0e1525;
+      --bg-panel: #141d2e;
+      --bg-hover: #1a2540;
+      --border: rgba(99, 179, 237, 0.1);
+      --border-m: rgba(99, 179, 237, 0.2);
+      --border-h: rgba(99, 179, 237, 0.35);
+      --acc-blue: #4f9cf9;
+      --acc-teal: #2dd4bf;
+      --acc-purple: #a78bfa;
+      --acc-coral: #fb923c;
+      --acc-green: #34d399;
+      --acc-red: #f87171;
+      --text: #e2e8f0;
+      --text-m: #94a3b8;
+      --text-d: #475569;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-ui: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --r: 8px;
+      --r-lg: 14px;
+      --r-xl: 20px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 13px
+    }
+
+    button {
+      font-family: var(--font-ui);
+      cursor: pointer;
+      border: none;
+      outline: none
+    }
+
+    input,
+    select,
+    textarea {
+      font-family: var(--font-ui);
+      outline: none;
+      border: none
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 179, 237, 0.15);
+      border-radius: 3px
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 179, 237, 0.3)
+    }
+
+    /* ═══ APP SHELL ═══ */
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    /* ═══ TOPBAR ═══ */
+    .topbar {
+      height: 52px;
+      flex-shrink: 0;
+      background: rgba(14, 21, 37, 0.9);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 14px;
+      position: relative;
+      z-index: 100;
+    }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .logo-gem {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, var(--acc-blue), var(--acc-purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .topbar-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border-m)
+    }
+
+    .topbar-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-m);
+    }
+
+    .topbar-breadcrumb .crumb-active {
+      color: var(--text);
+      font-weight: 500
+    }
+
+    .topbar-spacer {
+      flex: 1
+    }
+
+    .topbar-badge {
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(79, 156, 249, 0.1);
+      border: 1px solid rgba(79, 156, 249, 0.2);
+      color: var(--acc-blue);
+    }
+
+    .btn-back {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-m);
+      border-radius: var(--r);
+      color: var(--text-m);
+      padding: 5px 12px;
+      font-size: 12px;
+      transition: all .2s;
+    }
+
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text)
+    }
+
+    .btn-back svg {
+      width: 14px;
+      height: 14px
+    }
+
+    .btn-back.visible {
+      display: flex
+    }
+
+    /* ═══ CONTENT ═══ */
+    .content {
+      flex: 1;
+      overflow: hidden;
+      position: relative
+    }
+
+    .page {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity .35s cubic-bezier(.4, 0, .2, 1), transform .35s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .page.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0)
+    }
+
+    /* ═══ LANDING PAGE ═══ */
+    #page-home {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-deep);
+      overflow: auto;
+      padding: 40px 20px;
+    }
+
+    .home-header {
+      text-align: center;
+      margin-bottom: 56px
+    }
+
+    .home-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--acc-blue);
+      margin-bottom: 14px;
+    }
+
+    .home-eyebrow::before,
+    .home-eyebrow::after {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: var(--acc-blue);
+      opacity: .5;
+    }
+
+    .home-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .home-sub {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--text-m);
+      font-weight: 300;
+      line-height: 1.6;
+      max-width: 400px;
+      margin-inline: auto;
+    }
+
+    .cards-grid {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
+    }
+
+    .module-card {
+      width: 240px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 32px 24px 28px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform .3s cubic-bezier(.34, 1.56, .64, 1),
+        border-color .3s, box-shadow .3s;
+      text-align: center;
+    }
+
+    .module-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--r-xl);
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+    }
+
+    .module-card:hover {
+      transform: translateY(-8px)
+    }
+
+    .module-card:hover::before {
+      opacity: 1
+    }
+
+    .card-db::before {
+      background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.08) 0%, transparent 70%)
+    }
+
+    .card-req::before {
+      background: radial-gradient(circle at 50% 0%, rgba(251, 146, 60, 0.08) 0%, transparent 70%)
+    }
+
+    .card-swag::before {
+      background: radial-gradient(circle at 50% 0%, rgba(167, 139, 250, 0.08) 0%, transparent 70%)
+    }
+
+    .card-db:hover {
+      border-color: rgba(45, 212, 191, 0.3);
+      box-shadow: 0 20px 60px rgba(45, 212, 191, 0.1)
+    }
+
+    .card-req:hover {
+      border-color: rgba(251, 146, 60, 0.3);
+      box-shadow: 0 20px 60px rgba(251, 146, 60, 0.1)
+    }
+
+    .card-swag:hover {
+      border-color: rgba(167, 139, 250, 0.3);
+      box-shadow: 0 20px 60px rgba(167, 139, 250, 0.1)
+    }
+
+    .icon-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    .icon-ring::before,
+    .icon-ring::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      animation: pulse-ring 2.5s ease-in-out infinite;
+    }
+
+    .icon-ring::before {
+      inset: -8px;
+      opacity: .15;
+    }
+
+    .icon-ring::after {
+      inset: -16px;
+      opacity: .07;
+      animation-delay: .5s
+    }
+
+    .ring-teal {
+      background: rgba(45, 212, 191, 0.12)
+    }
+
+    .ring-teal::before,
+    .ring-teal::after {
+      border: 1px solid var(--acc-teal)
+    }
+
+    .ring-coral {
+      background: rgba(251, 146, 60, 0.12)
+    }
+
+    .ring-coral::before,
+    .ring-coral::after {
+      border: 1px solid var(--acc-coral)
+    }
+
+    .ring-purple {
+      background: rgba(167, 139, 250, 0.12)
+    }
+
+    .ring-purple::before,
+    .ring-purple::after {
+      border: 1px solid var(--acc-purple)
+    }
+
+    @keyframes pulse-ring {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: .15
+      }
+
+      50% {
+        transform: scale(1.12);
+        opacity: .25
+      }
+    }
+
+    .icon-ring svg {
+      width: 34px;
+      height: 34px;
+      position: relative;
+      z-index: 1
+    }
+
+    .card-label {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-m);
+      line-height: 1.6
+    }
+
+    .card-tag {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .tag-teal {
+      background: rgba(45, 212, 191, 0.1);
+      color: var(--acc-teal);
+      border: 1px solid rgba(45, 212, 191, 0.2)
+    }
+
+    .tag-coral {
+      background: rgba(251, 146, 60, 0.1);
+      color: var(--acc-coral);
+      border: 1px solid rgba(251, 146, 60, 0.2)
+    }
+
+    .tag-purple {
+      background: rgba(167, 139, 250, 0.1);
+      color: var(--acc-purple);
+      border: 1px solid rgba(167, 139, 250, 0.2)
+    }
+
+    .card-arrow {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      color: var(--text-d);
+      font-size: 16px;
+      transition: color .2s, transform .2s;
+    }
+
+    .module-card:hover .card-arrow {
+      color: var(--text-m);
+      transform: translate(2px, -2px)
+    }
+
+    /* ═══ SHARED WORKSPACE ═══ */
+    .workspace {
+      display: flex;
+      height: 100%;
+      background: var(--bg-deep)
+    }
+
+    .ws-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow-y: auto;
+    }
+
+    .ws-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    .ws-toolbar {
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 10px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ws-body {
+      flex: 1;
+      overflow: auto;
+      padding: 20px
+    }
+
+    /* sidebar sections */
+    .sb-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-d);
+      padding: 14px 16px 6px;
+    }
+
+    .sb-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 16px;
+      cursor: pointer;
+      color: var(--text-m);
+      font-size: 12px;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+
+    .sb-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text)
+    }
+
+    .sb-item.active {
+      background: rgba(79, 156, 249, 0.06);
+      color: var(--acc-blue);
+      border-left-color: var(--acc-blue)
+    }
+
+    .sb-item svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0
+    }
+
+    /* ═══ SHARED FORM ELEMENTS ═══ */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 14px
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-m);
+      text-transform: uppercase;
+      letter-spacing: .5px
+    }
+
+    .field-input,
+    .field-select,
+    .field-textarea {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-m);
+      border-radius: var(--r);
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: 13px;
+      transition: border-color .2s, box-shadow .2s;
+      width: 100%;
+    }
+
+    .field-input:focus,
+    .field-select:focus,
+    .field-textarea:focus {
+      border-color: var(--acc-blue);
+      box-shadow: 0 0 0 3px rgba(79, 156, 249, 0.12);
+    }
+
+    .field-input::placeholder,
+    .field-textarea::placeholder {
+      color: var(--text-d)
+    }
+
+    .field-textarea {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.6
+    }
+
+    .field-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px
+    }
+
+    /* ═══ BUTTONS ═══ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--r);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all .2s;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn svg {
+      width: 15px;
+      height: 15px
+    }
+
+    .btn-primary {
+      background: var(--acc-blue);
+      color: #fff;
+      border: none
+    }
+
+    .btn-primary:hover {
+      background: #6aabff;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(79, 156, 249, 0.35)
+    }
+
+    .btn-primary:active {
+      transform: translateY(0)
+    }
+
+    .btn-teal {
+      background: var(--acc-teal);
+      color: #0a1a17;
+      border: none
+    }
+
+    .btn-teal:hover {
+      background: #5de8d4;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(45, 212, 191, 0.3)
+    }
+
+    .btn-coral {
+      background: var(--acc-coral);
+      color: #1a0a00;
+      border: none
+    }
+
+    .btn-coral:hover {
+      background: #fd9f49;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(251, 146, 60, 0.3)
+    }
+
+    .btn-purple {
+      background: var(--acc-purple);
+      color: #0f0a1a;
+      border: none
+    }
+
+    .btn-purple:hover {
+      background: #b8a3fb;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(167, 139, 250, 0.3)
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-m);
+      border: 1px solid var(--border-m)
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text)
+    }
+
+    .btn-danger {
+      background: rgba(248, 113, 113, 0.1);
+      color: var(--acc-red);
+      border: 1px solid rgba(248, 113, 113, 0.2)
+    }
+
+    .btn-danger:hover {
+      background: rgba(248, 113, 113, 0.2)
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px
+    }
+
+    .btn-lg {
+      padding: 11px 22px;
+      font-size: 14px
+    }
+
+    /* ═══ CARDS ═══ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 20px
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .card-title svg {
+      width: 16px;
+      height: 16px
+    }
+
+    /* ═══ TABLES ═══ */
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px
+    }
+
+    .tbl th {
+      text-align: left;
+      padding: 8px 10px;
+      color: var(--text-d);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .tbl td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle
+    }
+
+    .tbl tr:last-child td {
+      border-bottom: none
+    }
+
+    .tbl tr:hover td {
+      background: rgba(255, 255, 255, 0.02)
+    }
+
+    /* ═══ RESPONSE / OUTPUT BLOCKS ═══ */
+    .output-block {
+      background: rgba(8, 12, 20, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #a8d8a8;
+      overflow: auto;
+      position: relative;
+    }
+
+    .output-block .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-m);
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: var(--text-m);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: var(--font-ui);
+    }
+
+    .output-block .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text)
+    }
+
+    /* ═══ STATUS BADGES ═══ */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600
+    }
+
+    .s-2xx {
+      background: rgba(52, 211, 153, 0.1);
+      color: var(--acc-green);
+      border: 1px solid rgba(52, 211, 153, 0.2)
+    }
+
+    .s-4xx {
+      background: rgba(248, 113, 113, 0.1);
+      color: var(--acc-red);
+      border: 1px solid rgba(248, 113, 113, 0.2)
+    }
+
+    .s-5xx {
+      background: rgba(248, 113, 113, 0.1);
+      color: var(--acc-red);
+      border: 1px solid rgba(248, 113, 113, 0.2)
+    }
+
+    .s-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor
+    }
+
+    /* ═══ LOADER ═══ */
+    .loader {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center
+    }
+
+    .ldot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: ld .9s ease-in-out infinite
+    }
+
+    .ldot:nth-child(2) {
+      animation-delay: .15s
+    }
+
+    .ldot:nth-child(3) {
+      animation-delay: .3s
+    }
+
+    @keyframes ld {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(.5);
+        opacity: .4
+      }
+
+      40% {
+        transform: scale(1);
+        opacity: 1
+      }
+    }
+
+    /* ═══ TOAST ═══ */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-m);
+      border-radius: var(--r-lg);
+      padding: 10px 16px;
+      font-size: 13px;
+      z-index: 9999;
+      transform: translateY(12px);
+      opacity: 0;
+      transition: all .25s cubic-bezier(.34, 1.56, .64, 1);
+      pointer-events: none;
+      max-width: 320px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1
+    }
+
+    /* ═══ TABS ═══ */
+    .tab-bar {
+      display: flex;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border)
+    }
+
+    .tab-btn {
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-m);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+      color: var(--text)
+    }
+
+    .tab-btn.active {
+      color: var(--acc-blue);
+      border-bottom-color: var(--acc-blue)
+    }
+
+    .tab-content {
+      display: none
+    }
+
+    .tab-content.active {
+      display: block
+    }
+
+    /* ═══ SPLIT PANE ═══ */
+    .split-h {
+      display: flex;
+      height: 100%;
+      overflow: hidden
+    }
+
+    .split-v {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden
+    }
+
+    .pane {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column
+    }
+
+    .pane-body {
+      flex: 1;
+      overflow: auto;
+      padding: 16px
+    }
+
+    /* ═══ DIFF VIEW ═══ */
+    .diff-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 100%
+    }
+
+    .diff-pane {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    .diff-header {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 12px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: .3px;
+      color: var(--text-m);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .diff-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.8;
+      background: rgba(8, 12, 20, 0.5);
+    }
+
+    .diff-add {
+      background: rgba(52, 211, 153, 0.08);
+      color: #86efac
+    }
+
+    .diff-remove {
+      background: rgba(248, 113, 113, 0.08);
+      color: #fca5a5
+    }
+
+    .diff-neutral {
+      color: var(--text-m)
+    }
+
+    /* ═══ PARAM TABLE ═══ */
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px
+    }
+
+    .param-table th {
+      color: var(--text-d);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .param-table td {
+      padding: 3px 4px;
+      vertical-align: middle
+    }
+
+    .p-input {
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      transition: border-color .15s;
+    }
+
+    .p-input:focus {
+      border-color: var(--acc-blue)
+    }
+
+    .p-input::placeholder {
+      color: var(--text-d)
+    }
+
+    .p-chk {
+      accent-color: var(--acc-blue);
+      cursor: pointer;
+      width: 14px;
+      height: 14px
+    }
+
+    .del-btn {
+      background: none;
+      color: var(--text-d);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 4px;
+      transition: color .1s;
+      border: none
+    }
+
+    .del-btn:hover {
+      color: var(--acc-red)
+    }
+
+    /* ═══ JSON HIGHLIGHT ═══ */
+    .j-key {
+      color: #79b8ff
+    }
+
+    .j-str {
+      color: #9ecbff
+    }
+
+    .j-num {
+      color: #f3bf7a
+    }
+
+    .j-bool {
+      color: #e06c75
+    }
+
+    .j-null {
+      color: #6e7681
+    }
+
+    .j-p {
+      color: #58606e
+    }
+
+    /* ═══ DB PAGE SPECIFIC ═══ */
+    .schema-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .type-varchar {
+      background: rgba(79, 156, 249, 0.1);
+      color: #79b8ff
+    }
+
+    .type-int {
+      background: rgba(251, 146, 60, 0.1);
+      color: var(--acc-coral)
+    }
+
+    .type-bool {
+      background: rgba(52, 211, 153, 0.1);
+      color: var(--acc-green)
+    }
+
+    .type-date {
+      background: rgba(167, 139, 250, 0.1);
+      color: var(--acc-purple)
+    }
+
+    .type-other {
+      background: rgba(100, 116, 139, 0.1);
+      color: var(--text-m)
+    }
+
+    .conn-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: rgba(52, 211, 153, 0.08);
+      border: 1px solid rgba(52, 211, 153, 0.15);
+      color: var(--acc-green);
+    }
+
+    .conn-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--acc-green);
+      animation: blink 2s ease-in-out infinite
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    /* ═══ FILE UPLOAD ZONE ═══ */
+    .upload-zone {
+      border: 2px dashed var(--border-m);
+      border-radius: var(--r-lg);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag {
+      border-color: var(--acc-purple);
+      background: rgba(167, 139, 250, 0.04);
+    }
+
+    .upload-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: var(--text-d)
+    }
+
+    .upload-label {
+      font-size: 13px;
+      color: var(--text-m)
+    }
+
+    .upload-sub {
+      font-size: 11px;
+      color: var(--text-d);
+      margin-top: 4px
+    }
+
+    .upload-filename {
+      margin-top: 8px;
+      padding: 5px 12px;
+      background: rgba(167, 139, 250, 0.08);
+      border: 1px solid rgba(167, 139, 250, 0.2);
+      border-radius: var(--r);
+      font-size: 12px;
+      color: var(--acc-purple);
+      font-family: var(--font-mono);
+      display: none;
+    }
+
+    .upload-filename.visible {
+      display: inline-block
+    }
+
+    /* ═══ PROGRESS BAR ═══ */
+    .progress-bar {
+      height: 3px;
+      background: var(--bg-panel);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--acc-purple);
+      border-radius: 2px;
+      width: 0%;
+      transition: width .4s
+    }
+
+    /* ═══ METHOD SELECT STYLE ═══ */
+    .method-select {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-m);
+      border-radius: var(--r);
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      appearance: none;
+      min-width: 90px;
+      height: 36px;
+    }
+
+    .method-select:focus {
+      border-color: var(--acc-blue)
+    }
+
+    .url-bar-input {
+      flex: 1;
+      height: 36px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-m);
+      border-radius: var(--r);
+      color: var(--text);
+      padding: 0 12px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      transition: border-color .2s;
+    }
+
+    .url-bar-input:focus {
+      border-color: var(--acc-blue);
+      box-shadow: 0 0 0 3px rgba(79, 156, 249, .1)
+    }
+
+    .url-bar-input::placeholder {
+      color: var(--text-d);
+      font-family: var(--font-ui)
+    }
+
+    /* ═══ COLLECTION ITEMS ═══ */
+    .coll-group {
+      border-bottom: 1px solid var(--border)
+    }
+
+    .coll-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-m);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      transition: background .15s;
+    }
+
+    .coll-title:hover {
+      background: rgba(255, 255, 255, 0.03)
+    }
+
+    .coll-title .arrow {
+      transition: transform .2s;
+      font-size: 9px
+    }
+
+    .coll-title.open .arrow {
+      transform: rotate(90deg)
+    }
+
+    .coll-items {
+      display: none
+    }
+
+    .coll-title.open+.coll-items {
+      display: block
+    }
+
+    .coll-req {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px 6px 24px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .coll-req:hover {
+      background: rgba(255, 255, 255, 0.03)
+    }
+
+    .coll-req.active {
+      background: rgba(251, 146, 60, 0.06)
+    }
+
+    .method-tag {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      min-width: 38px;
+      text-align: center;
+    }
+
+    .mt-get {
+      color: #2ecc71;
+      background: rgba(46, 204, 113, .1)
+    }
+
+    .mt-post {
+      color: #fb923c;
+      background: rgba(251, 146, 60, .1)
+    }
+
+    .mt-put {
+      color: #60a5fa;
+      background: rgba(96, 165, 250, .1)
+    }
+
+    .mt-patch {
+      color: #a78bfa;
+      background: rgba(167, 139, 250, .1)
+    }
+
+    .mt-delete {
+      color: #f87171;
+      background: rgba(248, 113, 113, .1)
+    }
+
+    .req-name-text {
+      font-size: 11px;
+      color: var(--text-m);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .coll-req.active .req-name-text {
+      color: var(--text)
+    }
+
+    /* ═══ SWAGGER SPECIFIC ═══ */
+    .validation-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .validation-item:last-child {
+      border-bottom: none
+    }
+
+    .vi-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      margin-top: 1px
+    }
+
+    .vi-ok {
+      background: rgba(52, 211, 153, .15);
+      color: var(--acc-green)
+    }
+
+    .vi-warn {
+      background: rgba(251, 191, 36, .15);
+      color: #fbbf24
+    }
+
+    .vi-err {
+      background: rgba(248, 113, 113, .15);
+      color: var(--acc-red)
+    }
+
+    .vi-body {
+      flex: 1
+    }
+
+    .vi-title {
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 2px
+    }
+
+    .vi-sub {
+      color: var(--text-m);
+      font-size: 11px;
+      font-family: var(--font-mono)
+    }
+
+    /* ═══ HISTORY LIST ═══ */
+    .hist-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: background .1s;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hist-item:hover {
+      background: rgba(255, 255, 255, 0.03)
+    }
+
+    .hist-time {
+      font-size: 10px;
+      color: var(--text-d);
+      margin-left: auto;
+      font-family: var(--font-mono)
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <!-- ═══ TOPBAR ═══ -->
+    <div class="topbar">
+      <div class="topbar-logo">
+        <div class="logo-gem">⬡</div>
+        DevSuite Pro
+      </div>
+      <div class="topbar-sep"></div>
+      <div class="topbar-breadcrumb" id="breadcrumb">
+        <span>Dashboard</span>
+      </div>
+      <div class="topbar-spacer"></div>
+      <button class="btn-back" id="btn-back" onclick="goHome()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 12L6 8l4-4" />
+        </svg>
+        Back
+      </button>
+      <div class="topbar-badge" id="topbar-badge">ACE Server</div>
+    </div>
+
+    <!-- ═══ CONTENT ═══ -->
+    <div class="content">
+
+      <!-- ── HOME ── -->
+      <div class="page active" id="page-home">
+        <div class="home-header">
+          <div class="home-eyebrow">ACE Server Toolkit</div>
+          <div class="home-title">Developer Operations<br>Command Center</div>
+          <div class="home-sub">Three powerful tools unified in one workspace. Query databases, test APIs, and validate
+            schemas without switching context.</div>
+        </div>
+        <div class="cards-grid">
+          <div class="module-card card-db" onclick="openPage('db')">
+            <span class="card-arrow">↗</span>
+            <div class="icon-ring ring-teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-teal)" stroke-width="1.8">
+                <ellipse cx="12" cy="5" rx="9" ry="3" />
+                <path d="M3 5v4c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+                <path d="M3 9v4c0 1.66 4.03 3 9 3s9-1.34 9-3V9" />
+                <path d="M3 13v4c0 1.66 4.03 3 9 3s9-1.34 9-3v-4" />
+              </svg>
+            </div>
+            <div class="card-label">DB Query</div>
+            <div class="card-desc">Execute queries against your ACE server database with field builder, live schema
+              explorer, and result export.</div>
+            <div class="card-tag tag-teal">Database</div>
+          </div>
+          <div class="module-card card-req" onclick="openPage('request')">
+            <span class="card-arrow">↗</span>
+            <div class="icon-ring ring-coral">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-coral)" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8 12h8M14 8l4 4-4 4" />
+              </svg>
+            </div>
+            <div class="card-label">Request Hit</div>
+            <div class="card-desc">Full-featured API client — params, headers, auth, body, collections, history, and
+              response inspection.</div>
+            <div class="card-tag tag-coral">API Client</div>
+          </div>
+          <div class="module-card card-swag" onclick="openPage('swagger')">
+            <span class="card-arrow">↗</span>
+            <div class="icon-ring ring-purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-purple)" stroke-width="1.8">
+                <path d="M9 12h6M9 16h6M9 8h2" />
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <path d="M14 3v4a1 1 0 001 1h4" />
+              </svg>
+            </div>
+            <div class="card-label">Swagger Validation</div>
+            <div class="card-desc">Upload XSD and YAML files to cross-validate schemas, detect mismatches, and generate
+              updated OpenAPI specs.</div>
+            <div class="card-tag tag-purple">Validation</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+     DB QUERY PAGE
+══════════════════════════════════ -->
+
+
+      <!-- ══════════════════════════════════
+     REQUEST HIT PAGE
+══════════════════════════════════ -->
+      <div class="page" id="page-request">
+        <div class="workspace">
+          <!-- Sidebar -->
+          <div class="ws-sidebar">
+            <div style="padding:10px">
+              <button class="btn btn-coral" style="width:100%;justify-content:center" onclick="newReqTab()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+                  style="width:14px;height:14px">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                New Request
+              </button>
+            </div>
+            <div style="padding:0 10px 6px"><input class="field-input" style="font-size:11px;padding:5px 8px"
+                placeholder="Search requests…" oninput="filterReqs(this.value)" /></div>
+            <div id="req-collections">
+              <div class="coll-group">
+                <div class="coll-title open" onclick="toggleColl(this)">
+                  <span class="arrow">▶</span>
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"
+                    style="width:13px;height:13px">
+                    <rect x="1" y="3" width="12" height="9" rx="1" />
+                    <path d="M5 3V2a1 1 0 011-1h2a1 1 0 011 1v1" />
+                  </svg>
+                  ACE Server APIs
+                </div>
+                <div class="coll-items">
+                  <div class="coll-req active" onclick="loadSampleReq('get-health')"><span
+                      class="method-tag mt-get">GET</span><span class="req-name-text">Health Check</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('get-users')"><span
+                      class="method-tag mt-get">GET</span><span class="req-name-text">Get All Users</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('post-user')"><span
+                      class="method-tag mt-post">POST</span><span class="req-name-text">Create User</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('put-user')"><span
+                      class="method-tag mt-put">PUT</span><span class="req-name-text">Update User</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('del-user')"><span
+                      class="method-tag mt-delete">DEL</span><span class="req-name-text">Delete User</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('get-orders')"><span
+                      class="method-tag mt-get">GET</span><span class="req-name-text">Get Orders</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('post-order')"><span
+                      class="method-tag mt-post">POST</span><span class="req-name-text">Create Order</span></div>
+                </div>
+              </div>
+              <div class="coll-group">
+                <div class="coll-title" onclick="toggleColl(this)">
+                  <span class="arrow">▶</span>
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"
+                    style="width:13px;height:13px">
+                    <rect x="1" y="3" width="12" height="9" rx="1" />
+                    <path d="M5 3V2a1 1 0 011-1h2a1 1 0 011 1v1" />
+                  </svg>
+                  Auth APIs
+                </div>
+                <div class="coll-items">
+                  <div class="coll-req" onclick="loadSampleReq('post-login')"><span
+                      class="method-tag mt-post">POST</span><span class="req-name-text">Login</span></div>
+                  <div class="coll-req" onclick="loadSampleReq('post-refresh')"><span
+                      class="method-tag mt-post">POST</span><span class="req-name-text">Refresh Token</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="sb-section-label">History</div>
+            <div id="req-history"></div>
+          </div>
+
+          <!-- Main -->
+          <div class="ws-main" style="overflow:hidden">
+            <!-- URL bar -->
+            <div class="ws-toolbar" style="gap:8px">
+              <select class="method-select" id="req-method" onchange="styleMethod()">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>PATCH</option>
+                <option>DELETE</option>
+                <option>HEAD</option>
+                <option>OPTIONS</option>
+              </select>
+              <input class="url-bar-input" id="req-url" placeholder="service url" value="http://10.177.44.xx" />
+              <button class="btn btn-ghost btn-sm" onclick="saveReq()">Save</button>
+              <button class="btn btn-coral" id="req-send-btn" onclick="sendRequest()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+                  style="width:14px;height:14px">
+                  <path d="M3 8h10M9 4l4 4-4 4" />
+                </svg>
+                Send
+              </button>
+            </div>
+
+            <!-- Split: request + response -->
+            <div class="split-h" style="flex:1;overflow:hidden">
+              <!-- Request pane -->
+              <div class="pane" style="flex:1;border-right:1px solid var(--border)">
+                <div class="tab-bar">
+                  <button class="tab-btn active" onclick="switchReqTab(this,'params')">Params <span
+                      style="font-size:10px;opacity:.6" id="pc">2</span></button>
+                  <button class="tab-btn" onclick="switchReqTab(this,'auth')">Auth</button>
+                  <button class="tab-btn" onclick="switchReqTab(this,'headers')">Headers <span
+                      style="font-size:10px;opacity:.6" id="hc">1</span></button>
+                  <button class="tab-btn" onclick="switchReqTab(this,'body')">Body</button>
+                  <button class="tab-btn" onclick="switchReqTab(this,'scripts')">Scripts</button>
+                </div>
+                <div class="pane-body">
+
+                  <!-- Params -->
+                  <div class="tab-content active" id="rt-params">
+                    <p style="font-size:11px;color:var(--text-d);margin-bottom:10px">Query params are appended to the
+                      URL automatically.</p>
+                    <table class="param-table">
+                      <thead>
+                        <tr>
+                          <th style="width:22px"></th>
+                          <th>Key</th>
+                          <th>Value</th>
+                          <th>Description</th>
+                          <th style="width:26px"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="params-body"></tbody>
+                    </table>
+                    <button onclick="addParam('params-body')"
+                      style="margin-top:8px;background:none;border:1px dashed var(--border-m);border-radius:var(--r);color:var(--text-d);padding:5px 12px;width:100%;text-align:left;cursor:pointer;font-size:12px;transition:all .15s"
+                      onmouseover="this.style.borderColor='var(--acc-coral)';this.style.color='var(--acc-coral)'"
+                      onmouseout="this.style.borderColor='var(--border-m)';this.style.color='var(--text-d)'">+ Add
+                      Parameter</button>
+                  </div>
+
+                  <!-- Auth -->
+                  <div class="tab-content" id="rt-auth">
+                    <div class="field-group">
+                      <div class="field-label">Auth Type</div>
+                      <select class="field-select" style="width:200px" id="auth-type" onchange="updateAuth()">
+                        <option value="none">No Auth</option>
+                        <option value="bearer">Bearer Token</option>
+                        <option value="basic">Basic Auth</option>
+                        <option value="apikey">API Key</option>
+                        <option value="oauth2">OAuth 2.0</option>
+                      </select>
+                    </div>
+                    <div id="auth-fields"></div>
+                  </div>
+
+                  <!-- Headers -->
+                  <div class="tab-content" id="rt-headers">
+                    <table class="param-table">
+                      <thead>
+                        <tr>
+                          <th style="width:22px"></th>
+                          <th>Key</th>
+                          <th>Value</th>
+                          <th>Description</th>
+                          <th style="width:26px"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="headers-body"></tbody>
+                    </table>
+                    <button onclick="addParam('headers-body')"
+                      style="margin-top:8px;background:none;border:1px dashed var(--border-m);border-radius:var(--r);color:var(--text-d);padding:5px 12px;width:100%;text-align:left;cursor:pointer;font-size:12px;transition:all .15s"
+                      onmouseover="this.style.borderColor='var(--acc-coral)';this.style.color='var(--acc-coral)'"
+                      onmouseout="this.style.borderColor='var(--border-m)';this.style.color='var(--text-d)'">+ Add
+                      Header</button>
+                  </div>
+
+                  <!-- Body -->
+                  <div class="tab-content" id="rt-body">
+                    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="body-types">
+                      <button class="tab-btn" style="font-size:11px;padding:4px 10px"
+                        onclick="setBody('none',this)">none</button>
+                      <button class="tab-btn active" onclick="setBody('json',this)"
+                        style="font-size:11px;padding:4px 10px">JSON</button>
+                      <button class="tab-btn" onclick="setBody('form',this)"
+                        style="font-size:11px;padding:4px 10px">form-data</button>
+                      <button class="tab-btn" onclick="setBody('urlenc',this)"
+                        style="font-size:11px;padding:4px 10px">x-www-form-urlencoded</button>
+                      <button class="tab-btn" onclick="setBody('raw',this)"
+                        style="font-size:11px;padding:4px 10px">raw</button>
+                    </div>
+                    <textarea class="field-textarea" id="body-editor" style="min-height:200px;color:#a8d8a8">{
+  "status": "check"
+}</textarea>
+                  </div>
+
+                  <!-- Scripts -->
+                  <div class="tab-content" id="rt-scripts">
+                    <div style="margin-bottom:10px">
+                      <div class="field-label" style="margin-bottom:6px">Pre-request Script</div>
+                      <textarea class="field-textarea" style="min-height:120px;color:#c9d1d9"
+                        placeholder="// Runs before the request&#10;// pm.environment.set('token', 'abc');&#10;// pm.globals.set('baseUrl', 'https://ace-server.internal');"></textarea>
+                    </div>
+                    <div>
+                      <div class="field-label" style="margin-bottom:6px">Post-response Script</div>
+                      <textarea class="field-textarea" style="min-height:120px;color:#c9d1d9"
+                        placeholder="// Runs after response&#10;// const data = pm.response.json();&#10;// pm.test('Status is 200', () => pm.response.to.have.status(200));"></textarea>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Response pane -->
+              <div class="pane" style="flex:1">
+                <div
+                  style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0">
+                  <span style="font-size:11px;color:var(--text-d);font-weight:600">RESPONSE</span>
+                  <div id="resp-status-badge"></div>
+                  <div id="resp-meta" style="font-size:11px;color:var(--text-d);font-family:var(--font-mono)"></div>
+                  <div style="flex:1"></div>
+                  <button class="btn btn-ghost btn-sm" onclick="copyResp()">Copy</button>
+                  <button class="btn btn-ghost btn-sm" onclick="downloadResp()">Save</button>
+                </div>
+                <div class="tab-bar">
+                  <button class="tab-btn active" onclick="switchRespTab(this,'body')">Body</button>
+                  <button class="tab-btn" onclick="switchRespTab(this,'headers')">Headers</button>
+                  <button class="tab-btn" onclick="switchRespTab(this,'cookies')">Cookies</button>
+                  <button class="tab-btn" onclick="switchRespTab(this,'timeline')">Timeline</button>
+                </div>
+                <div class="pane-body" style="overflow:auto">
+                  <div id="rr-body">
+                    <div id="resp-empty"
+                      style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:10px;color:var(--text-d)">
+                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.2" opacity=".4">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 8v5l3 3" />
+                      </svg>
+                      <p style="font-size:13px">Click Send to get a response</p>
+                      <p style="font-size:11px;color:var(--text-d)">Keyboard: Ctrl + Enter</p>
+                    </div>
+                    <div id="resp-json" class="output-block"
+                      style="display:none;max-height:none;background:transparent;border:none;padding:0">
+                      <button class="copy-btn" onclick="copyResp()">Copy</button>
+                      <div id="resp-json-content"></div>
+                    </div>
+                  </div>
+                  <div id="rr-headers" style="display:none">
+                    <table class="tbl">
+                      <thead>
+                        <tr>
+                          <th>Key</th>
+                          <th>Value</th>
+                        </tr>
+                      </thead>
+                      <tbody id="resp-headers-body"></tbody>
+                    </table>
+                  </div>
+                  <div id="rr-cookies" style="display:none">
+                    <p style="color:var(--text-d);font-size:12px;padding:20px 0">No cookies received.</p>
+                  </div>
+                  <div id="rr-timeline"
+                    style="display:none;font-family:var(--font-mono);font-size:12px;line-height:2.2;color:var(--text-m)">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+     SWAGGER VALIDATION PAGE
+══════════════════════════════════ -->
+      <div class="page" id="page-swagger">
+        <div class="workspace">
+          <!-- Sidebar -->
+          <div class="ws-sidebar">
+            <div class="sb-section-label">Validation Steps</div>
+            <div class="sb-item active" id="sw-step1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="2" width="12" height="12" rx="1" />
+                <path d="M5 8h6M5 5h6M5 11h4" />
+              </svg>
+              1. Upload Files
+            </div>
+            <div class="sb-item" id="sw-step2">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 8h12M2 12l4-4-4-4" />
+              </svg>
+              2. Compare Schemas
+            </div>
+            <div class="sb-item" id="sw-step3">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 8l3 3 5-6" />
+              </svg>
+              3. View Report
+            </div>
+            <div class="sb-item" id="sw-step4">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 14l3-3m0 0l3-3m-3 3l-3-3m3 3l3 3" />
+              </svg>
+              4. Export Updated YAML
+            </div>
+            <div class="sb-section-label">Recent Validations</div>
+            <div class="sb-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+              <span style="font-size:11px;color:var(--text-m)">user-api.yaml</span>
+              <span style="font-size:10px;color:var(--text-d)">3 issues · 2h ago</span>
+            </div>
+            <div class="sb-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+              <span style="font-size:11px;color:var(--text-m)">order-schema.yaml</span>
+              <span style="font-size:10px;color:var(--text-d)">0 issues · yesterday</span>
+            </div>
+          </div>
+
+          <!-- Main -->
+          <div class="ws-main">
+            <div class="ws-toolbar">
+              <span style="font-size:11px;color:var(--text-m);font-weight:600">SWAGGER VALIDATOR</span>
+              <div style="flex:1"></div>
+              <button class="btn btn-ghost btn-sm" onclick="resetSwagger()">Reset</button>
+              <button class="btn btn-purple" id="sw-compare-btn" onclick="runComparison()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+                  style="width:14px;height:14px">
+                  <path d="M2 8h12M8 4l4 4-4 4" />
+                </svg>
+                Compare & Validate
+              </button>
+            </div>
+            <div class="ws-body" style="display:grid;grid-template-rows:auto 1fr;gap:16px">
+
+              <!-- Upload row -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <!-- XSD -->
+                <div class="card">
+                  <div class="card-title">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="var(--acc-purple)" stroke-width="1.5">
+                      <rect x="2" y="2" width="12" height="12" rx="1" />
+                      <path d="M5 2v3a1 1 0 001 1h4" />
+                      <path d="M5 9h6M5 12h4" />
+                    </svg>
+                    XSD Schema File
+                  </div>
+                  <div class="upload-zone" id="xsd-zone" ondragover="dragOver(event,'xsd-zone')"
+                    ondragleave="dragLeave('xsd-zone')" ondrop="dropFile(event,'xsd')">
+                    <input type="file" accept=".xsd,.xml" onchange="fileSelected(this,'xsd')" />
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-label">Drop XSD file here or click to browse</div>
+                    <div class="upload-sub">.xsd, .xml accepted</div>
+                    <div class="upload-filename" id="xsd-fname"></div>
+                  </div>
+                  <div class="progress-bar" id="xsd-progress">
+                    <div class="progress-fill" id="xsd-pfill"></div>
+                  </div>
+                  <div class="field-group" style="margin-top:12px;margin-bottom:0">
+                    <div class="field-label">Or paste XSD content</div>
+                    <textarea class="field-textarea" id="xsd-content" style="min-height:100px;font-size:11px"
+                      placeholder='&lt;?xml version="1.0" encoding="UTF-8"?&gt;&#10;&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;&#10;  &lt;xs:element name="User"&gt;&#10;    ...&#10;  &lt;/xs:element&gt;&#10;&lt;/xs:schema&gt;'></textarea>
+                  </div>
+                </div>
+                <!-- YAML -->
+                <div class="card">
+                  <div class="card-title">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="var(--acc-purple)" stroke-width="1.5">
+                      <rect x="2" y="2" width="12" height="12" rx="1" />
+                      <path d="M5 2v3a1 1 0 001 1h4" />
+                      <path d="M5 9h6M5 12h4" />
+                    </svg>
+                    OpenAPI / YAML File
+                  </div>
+                  <div class="upload-zone" id="yaml-zone" ondragover="dragOver(event,'yaml-zone')"
+                    ondragleave="dragLeave('yaml-zone')" ondrop="dropFile(event,'yaml')">
+                    <input type="file" accept=".yaml,.yml,.json" onchange="fileSelected(this,'yaml')" />
+                    <div class="upload-icon">📋</div>
+                    <div class="upload-label">Drop YAML / OpenAPI file here</div>
+                    <div class="upload-sub">.yaml, .yml, .json accepted</div>
+                    <div class="upload-filename" id="yaml-fname"></div>
+                  </div>
+                  <div class="progress-bar" id="yaml-progress">
+                    <div class="progress-fill" id="yaml-pfill"></div>
+                  </div>
+                  <div class="field-group" style="margin-top:12px;margin-bottom:0">
+                    <div class="field-label">Or paste YAML content</div>
+                    <textarea class="field-textarea" id="yaml-content" style="min-height:100px;font-size:11px"
+                      placeholder="openapi: 3.0.0&#10;info:&#10;  title: My API&#10;  version: 1.0.0&#10;paths:&#10;  /users:&#10;    get:&#10;      summary: Get users&#10;      responses:&#10;        '200':&#10;          description: Success"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Results area -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow:hidden">
+                <!-- Validation Report -->
+                <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+                  <div class="card-title">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="var(--acc-purple)" stroke-width="1.5">
+                      <path d="M4 8l3 3 5-6" />
+                      <circle cx="8" cy="8" r="6" />
+                    </svg>
+                    Validation Report
+                    <span id="sw-summary"
+                      style="margin-left:auto;font-size:11px;color:var(--text-d);font-weight:400"></span>
+                  </div>
+                  <div style="flex:1;overflow:auto" id="sw-report">
+                    <div style="color:var(--text-d);text-align:center;padding:40px;font-size:12px">Upload files and
+                      click Compare to see the validation report</div>
+                  </div>
+                </div>
+                <!-- Updated Swagger -->
+                <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+                  <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="display:flex;align-items:center;gap:8px">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="var(--acc-green)" stroke-width="1.5">
+                        <path d="M2 14l3-3M14 2l-3 3m-6 6l6-6" />
+                      </svg>
+                      Updated OpenAPI Spec
+                    </span>
+                    <button class="btn btn-ghost btn-sm" onclick="downloadYaml()">Download .yaml</button>
+                  </div>
+                  <div style="flex:1;overflow:auto">
+                    <div class="output-block" id="sw-output"
+                      style="color:#a8d8a8;min-height:100%;border-radius:var(--r);border:1px solid var(--border)">
+                      <span style="color:var(--text-d)">Updated YAML will appear here after comparison…</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /app -->
+
+  <div id="toast">
+    <span id="toast-icon">✓</span>
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    // ══ STATE ══
+    const S = {
+      currentPage: 'home',
+      lastResp: null,
+      xsdContent: '',
+      yamlContent: '',
+      dbTable: 'users',
+      reqHistory: [],
+      toast: (msg, type = 'info') => {
+        console.log(`[${type.toUpperCase()}]: ${msg}`);
+        // Add your specific toast notification UI logic here if you have one
+        alert(msg);
+      }
+    };
+
+    // ══ PAGE NAV ══
+    function openPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + id).classList.add('active');
+      S.currentPage = id;
+      document.getElementById('btn-back').classList.add('visible');
+      const labels = { db: 'DB Query', request: 'Request Hit', swagger: 'Swagger Validation' };
+      const colors = { db: 'var(--acc-teal)', request: 'var(--acc-coral)', swagger: 'var(--acc-purple)' };
+      document.getElementById('breadcrumb').innerHTML = `<span style="color:var(--text-d)">Dashboard</span><span style="color:var(--text-d);margin:0 4px">›</span><span class="crumb-active" style="color:${colors[id]}">${labels[id]}</span>`;
+      document.getElementById('topbar-badge').style.color = colors[id];
+    }
+    function goHome() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-home').classList.add('active');
+      S.currentPage = 'home';
+      document.getElementById('btn-back').classList.remove('visible');
+      document.getElementById('breadcrumb').innerHTML = '<span>Dashboard</span>';
+      document.getElementById('topbar-badge').style.color = 'var(--acc-blue)';
+    }
+
+    // ══ TOAST ══
+    function toast(msg, type = 'ok') {
+      const t = document.getElementById('toast');
+      const icons = { ok: '✓', err: '✕', warn: '⚠' };
+      const colors = { ok: 'var(--acc-green)', err: 'var(--acc-red)', warn: '#fbbf24' };
+      document.getElementById('toast-icon').textContent = icons[type] || '✓';
+      document.getElementById('toast-icon').style.color = colors[type] || 'var(--acc-green)';
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ══ DB PAGE ══
+    const SAMPLE_QUERIES = {
+      'active-users': 'SELECT id, name, email, status, created_at\nFROM users\nWHERE status = \'active\'\nORDER BY created_at DESC\nLIMIT 50;',
+      'revenue': 'SELECT DATE_TRUNC(\'month\', created_at) as month,\n  SUM(total) as revenue, COUNT(*) as orders\nFROM orders\nWHERE created_at >= NOW() - INTERVAL \'12 months\'\nGROUP BY month\nORDER BY month DESC;',
+    };
+    const SCHEMA = {
+      users: [{ col: 'id', type: 'INT', null: false }, { col: 'name', type: 'VARCHAR(100)', null: false }, { col: 'email', type: 'VARCHAR(255)', null: false }, { col: 'status', type: 'VARCHAR(20)', null: true }, { col: 'created_at', type: 'TIMESTAMP', null: true }],
+      orders: [{ col: 'id', type: 'INT', null: false }, { col: 'user_id', type: 'INT', null: false }, { col: 'total', type: 'DECIMAL(10,2)', null: false }, { col: 'status', type: 'VARCHAR(30)', null: true }, { col: 'created_at', type: 'TIMESTAMP', null: true }],
+      products: [{ col: 'id', type: 'INT', null: false }, { col: 'name', type: 'VARCHAR(200)', null: false }, { col: 'price', type: 'DECIMAL(10,2)', null: false }, { col: 'stock', type: 'INT', null: true }, { col: 'active', type: 'BOOLEAN', null: true }],
+      transactions: [{ col: 'id', type: 'INT', null: false }, { col: 'order_id', type: 'INT', null: false }, { col: 'amount', type: 'DECIMAL(10,2)', null: false }, { col: 'method', type: 'VARCHAR(30)', null: true }, { col: 'ts', type: 'TIMESTAMP', null: false }],
+      audit_log: [{ col: 'id', type: 'INT', null: false }, { col: 'action', type: 'VARCHAR(50)', null: false }, { col: 'table_name', type: 'VARCHAR(100)', null: false }, { col: 'record_id', type: 'INT', null: true }, { col: 'ts', type: 'TIMESTAMP', null: false }],
+    };
+
+    function selectTable(el, name) {
+      document.querySelectorAll('#page-db .sb-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+      S.dbTable = name;
+      document.getElementById('db-table-name').textContent = name;
+      updateQueryPreview();
+    }
+    function loadSavedQuery(key) {
+      document.getElementById('db-custom-sql').value = SAMPLE_QUERIES[key] || '';
+      toast('Query loaded');
+    }
+    function updateQueryPreview() {
+      const op = document.getElementById('db-op').value;
+      const fields = document.getElementById('db-fields').value.trim() || '*';
+      const where = document.getElementById('db-where').value.trim();
+      const order = document.getElementById('db-order').value.trim();
+      const limit = document.getElementById('db-limit').value;
+      const t = S.dbTable;
+      let sql = '';
+      if (op === 'SELECT' || op === 'COUNT') {
+        sql = `${op === 'COUNT' ? 'SELECT COUNT(*)' : ('SELECT ' + fields)}\nFROM ${t}`;
+        if (where) sql += `\nWHERE ${where}`;
+        if (order) sql += `\nORDER BY ${order}`;
+        if (limit) sql += `\nLIMIT ${limit}`;
+      } else if (op === 'INSERT') {
+        sql = `INSERT INTO ${t} (name, email, status)\nVALUES ('value1', 'value2', 'active');`;
+      } else if (op === 'UPDATE') {
+        sql = `UPDATE ${t}\nSET status = 'updated'${where ? '\nWHERE ' + where : ''}`;
+      } else if (op === 'DELETE') {
+        sql = `DELETE FROM ${t}${where ? '\nWHERE ' + where : ''}`;
+      }
+      document.getElementById('db-sql-preview').textContent = sql + ';';
+    }
+    function clearDbQuery() {
+      document.getElementById('db-fields').value = '*';
+      document.getElementById('db-where').value = '';
+      document.getElementById('db-order').value = '';
+      document.getElementById('db-limit').value = '100';
+      document.getElementById('db-custom-sql').value = '';
+      updateQueryPreview();
+    }
+
+    async function runDbQuery() {
+      const btn = document.getElementById('db-run-btn');
+      const customSql = document.getElementById('db-custom-sql').value.trim();
+      const sql = customSql || document.getElementById('db-sql-preview').textContent;
+      const endpoint = document.getElementById('db-api').value.trim();
+      const host = document.getElementById('db-host').value.trim();
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loader" style="color:#0a1a17"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div></div>';
+
+      document.getElementById('db-results-area').innerHTML = '<div style="color:var(--text-d);text-align:center;padding:30px;font-size:12px">Executing query on ACE server…</div>';
+
+      // Try real API, fallback to mock
+      let data;
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql, table: S.dbTable, host }),
+          signal: AbortSignal.timeout(8000)
+        });
+        data = await resp.json();
+      } catch (e) {
+        // Mock response for demo
+        data = mockDbResponse();
+      }
+      renderDbResults(data);
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M5 3l9 5-9 5V3z" fill="currentColor" stroke="none"/></svg> Run Query';
+    }
+
+    function mockDbResponse() {
+      const tables = {
+        users: [{ id: 1, name: 'Alice Johnson', email: 'alice@ace.com', status: 'active', created_at: '2024-01-15' }, { id: 2, name: 'Bob Smith', email: 'bob@ace.com', status: 'active', created_at: '2024-02-10' }, { id: 3, name: 'Carol White', email: 'carol@ace.com', status: 'inactive', created_at: '2024-03-05' }, { id: 4, name: 'Dan Brown', email: 'dan@ace.com', status: 'active', created_at: '2024-04-20' }, { id: 5, name: 'Eve Davis', email: 'eve@ace.com', status: 'active', created_at: '2024-05-30' }],
+        orders: [{ id: 101, user_id: 1, total: '299.99', status: 'completed', created_at: '2024-06-01' }, { id: 102, user_id: 2, total: '149.50', status: 'pending', created_at: '2024-06-03' }, { id: 103, user_id: 1, total: '89.00', status: 'completed', created_at: '2024-06-05' }],
+        products: [{ id: 1, name: 'Widget Pro', price: '49.99', stock: 100, active: true }, { id: 2, name: 'Gadget X', price: '129.99', stock: 45, active: true }, { id: 3, name: 'Tool Suite', price: '299.99', stock: 12, active: false }],
+        transactions: [{ id: 1001, order_id: 101, amount: '299.99', method: 'card', ts: '2024-06-01T10:30:00' }, { id: 1002, order_id: 102, amount: '149.50', method: 'upi', ts: '2024-06-03T14:20:00' }],
+        audit_log: [{ id: 1, action: 'INSERT', table_name: 'users', record_id: 5, ts: '2024-05-30T09:00:00' }, { id: 2, action: 'UPDATE', table_name: 'orders', record_id: 102, ts: '2024-06-03T15:00:00' }],
+      };
+      const rows = tables[S.dbTable] || [];
+      return { rows, count: rows.length, time_ms: Math.floor(Math.random() * 80) + 20 };
+    }
+
+    function renderDbResults(data) {
+      const area = document.getElementById('db-results-area');
+      const rows = data.rows || data.data || data.results || [];
+      document.getElementById('db-result-count').textContent = `${rows.length} rows · ${data.time_ms || 0}ms`;
+      if (!rows.length) { area.innerHTML = '<div style="color:var(--text-d);text-align:center;padding:30px;font-size:12px">No rows returned</div>'; return; }
+      const cols = Object.keys(rows[0]);
+      const typeMap = t => {
+        if (typeof t === 'boolean') return 'type-bool';
+        if (typeof t === 'number') return 'type-int';
+        if (typeof t === 'string' && t.match(/^\d{4}-/)) return 'type-date';
+        return 'type-varchar';
+      };
+      let html = '<table class="tbl"><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+      rows.forEach(row => {
+        html += '<tr>' + cols.map(c => {
+          const v = row[c];
+          const cls = typeMap(v);
+          return `<td><span class="schema-badge ${cls}">${v === null ? 'NULL' : v}</span></td>`;
+        }).join('') + '</tr>';
+      });
+      html += '</tbody></table>';
+      area.innerHTML = html;
+      toast(`${rows.length} rows returned`);
+    }
+
+    function exportResults() {
+      const table = document.querySelector('#db-results-area .tbl');
+      if (!table) { toast('No results to export', 'warn'); return; }
+      const rows = table.querySelectorAll('tr');
+      const csv = Array.from(rows).map(r => Array.from(r.querySelectorAll('th,td')).map(c => '"' + c.textContent.trim() + '"').join(',')).join('\n');
+      const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'query-results.csv'; a.click();
+      toast('Exported as CSV');
+    }
+
+    // ══ REQUEST PAGE ══
+    const SAMPLE_REQS = {
+      'get-health': { method: 'GET', url: 'https://ace-server.internal/api/health', body: '' },
+      'get-users': { method: 'GET', url: 'https://ace-server.internal/api/users', body: '' },
+      'post-user': { method: 'POST', url: 'https://ace-server.internal/api/users', body: '{\n  "name": "John Doe",\n  "email": "john@example.com",\n  "role": "user"\n}' },
+      'put-user': { method: 'PUT', url: 'https://ace-server.internal/api/users/1', body: '{\n  "name": "John Updated",\n  "status": "active"\n}' },
+      'del-user': { method: 'DELETE', url: 'https://ace-server.internal/api/users/1', body: '' },
+      'get-orders': { method: 'GET', url: 'https://ace-server.internal/api/orders', body: '' },
+      'post-order': { method: 'POST', url: 'https://ace-server.internal/api/orders', body: '{\n  "user_id": 1,\n  "items": [\n    {"product_id": 2, "qty": 1}\n  ]\n}' },
+      'post-login': { method: 'POST', url: 'https://ace-server.internal/auth/login', body: '{\n  "username": "admin",\n  "password": "secret"\n}' },
+      'post-refresh': { method: 'POST', url: 'https://ace-server.internal/auth/refresh', body: '{\n  "refresh_token": "eyJhb..."\n}' },
+    };
+
+    function loadSampleReq(key) {
+      const r = SAMPLE_REQS[key];
+      if (!r) return;
+      document.getElementById('req-method').value = r.method;
+      document.getElementById('req-url').value = r.url;
+      document.getElementById('body-editor').value = r.body;
+      styleMethod();
+      document.querySelectorAll('.coll-req').forEach(el => el.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+    }
+
+    function styleMethod() {
+      const sel = document.getElementById('req-method');
+      const cols = { GET: '#2ecc71', POST: '#fb923c', PUT: '#60a5fa', PATCH: '#a78bfa', DELETE: '#f87171', HEAD: '#94a3b8', OPTIONS: '#94a3b8' };
+      sel.style.color = cols[sel.value] || '#e2e8f0';
+    }
+
+    function switchReqTab(el, tab) {
+      document.querySelectorAll('#page-request .tab-btn').forEach(b => { if (b.closest('.tab-bar') === el.closest('.tab-bar')) b.classList.remove('active'); });
+      el.classList.add('active');
+      ['params', 'auth', 'headers', 'body', 'scripts'].forEach(t => { const c = document.getElementById('rt-' + t); if (c) c.classList.toggle('active', t === tab); });
+    }
+    function switchRespTab(el, tab) {
+      document.querySelectorAll('#page-request .pane:last-child .tab-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      const map = { body: 'rr-body', headers: 'rr-headers', cookies: 'rr-cookies', timeline: 'rr-timeline' };
+      Object.values(map).forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById(map[tab]).style.display = '';
+    }
+
+    function addParam(tbodyId) {
+      const tbody = document.getElementById(tbodyId);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input type="checkbox" class="p-chk" checked></td><td><input class="p-input" placeholder="Key"></td><td><input class="p-input" placeholder="Value"></td><td><input class="p-input" placeholder="Description" style="color:var(--text-d)"></td><td><button class="del-btn" onclick="this.closest('tr').remove();updateCounts()">×</button></td>`;
+      tbody.appendChild(tr);
+      updateCounts();
+    }
+    function updateCounts() {
+      const pc = [...document.querySelectorAll('#params-body tr')].filter(r => r.querySelector('.p-chk')?.checked && r.querySelectorAll('.p-input')[0]?.value).length;
+      const hc = [...document.querySelectorAll('#headers-body tr')].filter(r => r.querySelector('.p-chk')?.checked && r.querySelectorAll('.p-input')[0]?.value).length;
+      document.getElementById('pc').textContent = pc;
+      document.getElementById('hc').textContent = hc;
+    }
+    function setBody(type, btn) {
+      document.querySelectorAll('#body-types .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('body-editor').style.display = type === 'none' ? 'none' : '';
+    }
+
+    function updateAuth() {
+      const type = document.getElementById('auth-type').value;
+      const f = document.getElementById('auth-fields');
+      const tpls = {
+        none: '',
+        bearer: `<div class="field-group"><div class="field-label">Token</div><input class="field-input" placeholder="Enter bearer token…"></div>`,
+        basic: `<div class="row-2"><div class="field-group"><div class="field-label">Username</div><input class="field-input" placeholder="Username"></div><div class="field-group"><div class="field-label">Password</div><input class="field-input" type="password" placeholder="Password"></div></div>`,
+        apikey: `<div class="row-2"><div class="field-group"><div class="field-label">Key Name</div><input class="field-input" placeholder="X-API-Key"></div><div class="field-group"><div class="field-label">Key Value</div><input class="field-input" placeholder="your-api-key"></div></div><div class="field-group"><div class="field-label">Add to</div><select class="field-select" style="width:160px"><option>Header</option><option>Query Param</option></select></div>`,
+        oauth2: `<div class="field-group"><div class="field-label">Access Token URL</div><input class="field-input" placeholder="https://auth.server/oauth/token"></div><div class="row-2"><div class="field-group"><div class="field-label">Client ID</div><input class="field-input" placeholder="client_id"></div><div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" type="password" placeholder="client_secret"></div></div><button class="btn btn-ghost" style="margin-top:6px">Get New Access Token</button>`,
+      };
+      f.innerHTML = tpls[type] || '';
+    }
+
+    function buildFetchUrl() {
+      let url = document.getElementById('req-url').value.trim();
+      const params = [];
+      document.querySelectorAll('#params-body tr').forEach(r => {
+        if (!r.querySelector('.p-chk')?.checked) return;
+        const ins = r.querySelectorAll('.p-input');
+        const k = ins[0]?.value.trim(), v = ins[1]?.value.trim();
+        if (k) params.push(encodeURIComponent(k) + '=' + encodeURIComponent(v || ''));
+      });
+      if (params.length) url += (url.includes('?') ? '&' : '?') + params.join('&');
+      return url;
+    }
+
+    async function sendRequest() {
+      const btn = document.getElementById('req-send-btn');
+      const method = document.getElementById('req-method').value;
+      const url = buildFetchUrl();
+      if (!url) { toast('Enter a URL first', 'warn'); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loader" style="color:#1a0a00"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div></div>';
+
+      document.getElementById('resp-empty').style.display = 'flex';
+      document.getElementById('resp-json').style.display = 'none';
+      document.getElementById('resp-status-badge').innerHTML = '';
+      document.getElementById('resp-meta').textContent = '';
+
+      const headers = {};
+      document.querySelectorAll('#headers-body tr').forEach(r => {
+        if (!r.querySelector('.p-chk')?.checked) return;
+        const ins = r.querySelectorAll('.p-input');
+        const k = ins[0]?.value.trim(), v = ins[1]?.value.trim();
+        if (k) headers[k] = v;
+      });
+      // Auth
+      const authType = document.getElementById('auth-type').value;
+      if (authType === 'bearer') { const t = document.querySelector('#auth-fields input')?.value; if (t) headers['Authorization'] = 'Bearer ' + t; }
+      else if (authType === 'basic') { const ins = document.querySelectorAll('#auth-fields input'); if (ins[0]?.value) headers['Authorization'] = 'Basic ' + btoa(ins[0].value + ':' + (ins[1]?.value || '')); }
+      else if (authType === 'apikey') { const ins = document.querySelectorAll('#auth-fields input'); if (ins[0]?.value && ins[1]?.value) headers[ins[0].value] = ins[1].value; }
+
+      const bodyActive = document.querySelector('#body-types .active')?.textContent;
+      let body;
+      if (!['GET', 'HEAD'].includes(method) && bodyActive !== 'none') {
+        const bt = document.getElementById('body-editor').value;
+        if (bt.trim()) { body = bt; if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'; }
+      }
+
+      const t0 = performance.now();
+      try {
+        const resp = await fetch(url, { method, headers, body });
+        const elapsed = Math.round(performance.now() - t0);
+        const text = await resp.text();
+        S.lastResp = text;
+        const size = new TextEncoder().encode(text).length;
+
+        const cat = Math.floor(resp.status / 100);
+        const badgeCls = { 2: 's-2xx', 3: 's-2xx', 4: 's-4xx', 5: 's-5xx' }[cat] || 's-4xx';
+        const labels = { 200: 'OK', 201: 'Created', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error' };
+        document.getElementById('resp-status-badge').innerHTML = `<div class="status-badge ${badgeCls}"><span class="s-dot"></span>${resp.status} ${labels[resp.status] || resp.statusText}</div>`;
+        document.getElementById('resp-meta').textContent = `${elapsed}ms · ${fmtSize(size)}`;
+
+        document.getElementById('resp-empty').style.display = 'none';
+        document.getElementById('resp-json').style.display = '';
+        try {
+          const json = JSON.parse(text);
+          document.getElementById('resp-json-content').innerHTML = syntaxHL(JSON.stringify(json, null, 2));
+        } catch { document.getElementById('resp-json-content').textContent = text; }
+
+        // Response headers
+        const rhb = document.getElementById('resp-headers-body');
+        rhb.innerHTML = '';
+        resp.headers.forEach((v, k) => { rhb.innerHTML += `<tr><td>${k}</td><td>${v}</td></tr>`; });
+
+        // Timeline
+        document.getElementById('rr-timeline').innerHTML = `<div style="color:var(--acc-teal)">▸ DNS Lookup …… ~${Math.floor(elapsed * .08)}ms</div><div style="color:var(--acc-blue)">▸ TCP Connect …… ~${Math.floor(elapsed * .15)}ms</div><div style="color:var(--acc-coral)">▸ TLS Handshake … ~${Math.floor(elapsed * .2)}ms</div><div style="color:var(--text-m)">▸ Request Sent</div><div style="color:var(--acc-purple)">▸ Waiting (TTFB) … ~${Math.floor(elapsed * .5)}ms</div><div style="color:var(--acc-green)">▸ Content Transfer … ~${Math.floor(elapsed * .07)}ms</div><div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">Total: <span style="color:var(--text)">${elapsed}ms</span></div>`;
+
+        // History
+        S.reqHistory.unshift({ method, url: document.getElementById('req-url').value, status: resp.status, time: elapsed, ts: new Date() });
+        renderHistory();
+        toast(`${resp.status} in ${elapsed}ms`);
+      } catch (err) {
+        const elapsed = Math.round(performance.now() - t0);
+        document.getElementById('resp-empty').style.display = 'none';
+        document.getElementById('resp-json').style.display = '';
+        document.getElementById('resp-json-content').innerHTML = `<span style="color:var(--acc-red)">⚠ Error: ${err.message}</span>\n\n<span style="color:var(--text-d)">Common causes:\n• CORS policy blocked the request\n• Network unreachable\n• Invalid URL or server offline\n\nFor ACE server, ensure CORS headers are set:\nAccess-Control-Allow-Origin: *</span>`;
+        document.getElementById('resp-status-badge').innerHTML = `<div class="status-badge s-5xx"><span class="s-dot"></span>Network Error</div>`;
+        toast('Request failed: ' + err.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M3 8h10M9 4l4 4-4 4"/></svg> Send';
+      }
+    }
+
+    function renderHistory() {
+      const hist = document.getElementById('req-history');
+      hist.innerHTML = S.reqHistory.slice(0, 8).map(h => {
+        const age = Math.floor((Date.now() - h.ts) / 1000);
+        const ageStr = age < 60 ? `${age}s` : age < 3600 ? `${Math.floor(age / 60)}m` : `${Math.floor(age / 3600)}h`;
+        const mcls = { GET: 'mt-get', POST: 'mt-post', PUT: 'mt-put', PATCH: 'mt-patch', DELETE: 'mt-delete' }[h.method] || 'mt-get';
+        return `<div class="hist-item"><span class="method-tag ${mcls}">${h.method}</span><span style="font-size:11px;color:var(--text-m);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${new URL(h.url).pathname}</span><span class="hist-time">${ageStr}</span></div>`;
+      }).join('');
+    }
+
+    function copyResp() {
+      if (S.lastResp) { navigator.clipboard.writeText(S.lastResp); toast('Response copied'); }
+      else toast('No response yet', 'warn');
+    }
+    function downloadResp() {
+      if (!S.lastResp) { toast('No response yet', 'warn'); return; }
+      const a = document.createElement('a'); a.href = 'data:application/json,' + encodeURIComponent(S.lastResp); a.download = 'response.json'; a.click();
+      toast('Response downloaded');
+    }
+    function saveReq() { toast('Request saved to collection'); }
+    function newReqTab() {
+      document.getElementById('req-url').value = '';
+      document.getElementById('body-editor').value = '';
+      document.getElementById('req-method').value = 'GET';
+      styleMethod();
+      document.querySelectorAll('.coll-req').forEach(el => el.classList.remove('active'));
+    }
+    function filterReqs(val) {
+      document.querySelectorAll('.coll-req').forEach(el => {
+        el.style.display = el.querySelector('.req-name-text').textContent.toLowerCase().includes(val.toLowerCase()) ? '' : 'none';
+      });
+    }
+    function toggleColl(el) {
+      el.classList.toggle('open');
+    }
+
+    function syntaxHL(json) {
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g, m => {
+        if (/^"/.test(m)) return /:$/.test(m) ? `<span class="j-key">${m}</span>` : `<span class="j-str">${m}</span>`;
+        if (/true|false/.test(m)) return `<span class="j-bool">${m}</span>`;
+        if (/null/.test(m)) return `<span class="j-null">${m}</span>`;
+        if (/[{}\[\]]/.test(m)) return `<span class="j-p">${m}</span>`;
+        return `<span class="j-num">${m}</span>`;
+      });
+    }
+    function fmtSize(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(2) + ' MB'; }
+
+    // ══ SWAGGER AUTOMATOR CORE LOGIC ══
+
+    // 2. File Handling
+    function dragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('drag'); }
+    function dragLeave(id) { document.getElementById(id).classList.remove('drag'); }
+
+    function dropFile(e, type) {
+      e.preventDefault();
+      dragLeave(type + '-zone');
+      const file = e.dataTransfer?.files[0];
+      if (file) readUploadedFile(file, type);
+    }
+
+    function fileSelected(input, type) {
+      if (input.files[0]) readUploadedFile(input.files[0], type);
+    }
+
+    function readUploadedFile(file, type) {
+      const fname = document.getElementById(type + '-fname');
+      const pfill = document.getElementById(type + '-pfill');
+      fname.textContent = file.name;
+      fname.classList.add('visible');
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const content = e.target.result;
+        document.getElementById(type + '-content').value = content;
+        S[type + 'Content'] = content;
+        S.toast(`${file.name} loaded successfully`);
+        pfill.style.width = '100%';
+        setTimeout(() => pfill.style.width = '0%', 800);
+      };
+      reader.readAsText(file);
+    }
+
+    // 3. Core Validation & Parser Logic
+    function performRealValidation(xsdContent, yamlContent) {
+      const issues = [];
+      const changes = [];
+      let updatedYaml = yamlContent;
+
+      // 1. Get all fields from XSD
+      const fieldRegex = /name="([^"]+)" minOccurs="(\d+)"[^>]*>[\s\S]*?<xsd:pattern value="([^"]+)"/g;
+      let match;
+      const xsdFields = [];
+      while ((match = fieldRegex.exec(xsdContent)) !== null) {
+        if (match[1] !== 'SOURCE_ID') { // Skip as requested
+          xsdFields.push({ name: match[1], min: match[2], pattern: match[3] });
+        }
+      }
+
+      // 2. Validate and Fix each field
+      xsdFields.forEach(field => {
+        const { name, pattern } = field;
+        const lenMatch = pattern.match(/\{(\d+),?(\d+)?\}/);
+        const xsdMax = lenMatch ? parseInt(lenMatch[2] || lenMatch[1]) : 255;
+
+        // Check if field exists in the YAML definitions block
+        const fieldBlockRegex = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*?\\}`, 'g');
+        const exists = fieldBlockRegex.test(updatedYaml);
+
+        if (exists) {
+          // Field exists, verify maxLength
+          const maxRegex = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*?"maxLength"\\s*:\\s*(\\d+)`, 'g');
+          const maxMatch = maxRegex.exec(updatedYaml);
+
+          if (!maxMatch) {
+            // Add maxLength if missing
+            updatedYaml = updatedYaml.replace(new RegExp(`("${name}"\\s*:\\s*\\{[^}]*?)("type"\\s*:\\s*"string")`, 'g'), `$1"maxLength": ${xsdMax}, $2`);
+            changes.push({ type: 'ok', title: `Fixed: "${name}"`, sub: `Added missing maxLength: ${xsdMax}` });
+          } else if (parseInt(maxMatch[1]) !== xsdMax) {
+            // Update incorrect maxLength
+            // updatedYaml = updatedYaml.replace(maxRegex, `"${name}" : { ... ,"maxLength": ${xsdMax}}`); // Simplified for logic
+            const oldVal = existingMaxMatch[1];
+            updatedYaml = updatedYaml.replace(new RegExp(`("${name}"\\s*:\\s*\\{[^}]*?"maxLength"\\s*:\\s*)${oldVal}`, 'g'), `$1${xsdMaxLength}`);
+            changes.push({ type: 'ok', title: `Fixed: "${name}"`, sub: `Corrected maxLength to ${xsdMax}` });
+          }
+        } else {
+          // Field is missing from YAML entirely
+          issues.push({
+            type: 'err',
+            title: `Missing field: "${name}"`,
+            sub: 'Field defined in XSD is missing in Swagger schema'
+          });
+        }
+      });
+
+      return { issues, changes, updatedYaml };
+    }
+
+
+
+
+    // 4. Execution & UI Logic
+    async function runComparison() {
+      const xsd = document.getElementById('xsd-content').value.trim();
+      const yamlStr = document.getElementById('yaml-content').value.trim();
+
+      if (!xsd || !yamlStr) {
+        alert('Please provide both XSD and YAML files');
+        return;
+      }
+
+      const btn = document.getElementById('sw-compare-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Validating...';
+
+      // 1. Run Validation & Transformation
+      const { issues, changes, updatedYaml } = performRealValidation(xsd, yamlStr);
+
+      // 2. Sort and Render Report
+      const sortedReport = [...issues, ...changes].sort((a, b) => {
+        const order = { 'err': 0, 'warn': 1, 'ok': 2 };
+        return order[a.type] - order[b.type];
+      });
+
+      renderSwaggerReport(sortedReport);
+      renderUpdatedYaml(updatedYaml);
+
+      // 3. Finalize UI
+      document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('sw-step3').classList.add('active');
+      btn.disabled = false;
+      btn.innerHTML = 'Compare & Validate';
+    }
+
+    function renderUpdatedYaml(content) {
+      const output = document.getElementById('sw-output');
+      output.innerHTML = `
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sw-output').innerText.replace('Copy', ''))">Copy</button>
+        <pre style="margin:0; font-size:11px; white-space: pre-wrap;">${escapeHtml(content)}</pre>
+    `;
+    }
+
+
+    // 5. Rendering
+    function renderSwaggerReport(items) {
+      const reportDiv = document.getElementById('sw-report');
+      reportDiv.innerHTML = items.map(i => `
+        <div class="validation-item ${i.type === 'ok' ? 'updated-highlight' : ''}">
+            <div class="vi-icon vi-${i.type}">${i.type === 'ok' ? '?' : i.type === 'warn' ? '!' : '?'}</div>
+            <div class="vi-body">
+                <div class="vi-title">${i.title}</div>
+                <div class="vi-sub">${i.sub}</div>
+            </div>
+        </div>
+    `).join('');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function resetSwagger() {
+      ['xsd', 'yaml'].forEach(t => {
+        document.getElementById(t + '-content').value = '';
+        document.getElementById(t + '-fname').classList.remove('visible');
+      });
+      document.getElementById('sw-report').innerHTML = '<div style="color:var(--text-d);text-align:center;padding:40px;font-size:12px">Upload files and click Compare...</div>';
+      document.getElementById('sw-summary').textContent = '';
+    }
+
+
+    // ══ INIT ══
+    updateQueryPreview();
+    styleMethod();
+    addParam('params-body', 'format', 'json');
+    addParam('headers-body', 'Authorization', 'Bearer {{token}}');
+    updateCounts();
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && S.currentPage === 'request') sendRequest();
+    });
+  </script>
+</body>
+
+</html>
