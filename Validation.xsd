@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <xsd:element name="input">
+    	<xsd:complexType>
+            <xsd:all>
+            	<xsd:element name="SOURCE_ID" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            	<xsd:element name="BRANCH_CODE" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\d{1,5}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            	<xsd:element name="REQUEST_TELLER_ID" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\d{1,7}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+
+            	<xsd:element name="ACTION" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\w{1,1}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            	<xsd:element name="LOAN_ACCOUNT_NUMBER" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\d{11,17}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+
+
+
+            	<xsd:element name="LINKED_DEPOSIT_ACCOUNT_NUMBER"
+            		minOccurs="1" maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\d{11,17}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            	<xsd:element name="REQUEST_REFERENCE_NUMBER"
+            		minOccurs="1" maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\w{25,25}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            	<xsd:element name="REQUEST_AUTH_ID" minOccurs="1"
+            		maxOccurs="1">
+            		<xsd:simpleType>
+            			<xsd:restriction base="xsd:string">
+            				<xsd:pattern value="\d{1,7}"></xsd:pattern>
+            			</xsd:restriction>
+            		</xsd:simpleType>
+            	</xsd:element>
+            </xsd:all>
+    	</xsd:complexType>
+    </xsd:element>
+</xsd:schema>
