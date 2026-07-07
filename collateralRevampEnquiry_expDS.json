@@ -1,0 +1,190 @@
+{
+  "swagger" : "2.0",
+  "info" : {
+    "description" : "Developers may use this swagger specification for Surya Ghar Subsidy create amend service.",
+    "version" : "1.0.0",
+    "title" : "Swagger Specification for Surya Ghar Subsidy service V1.0",
+    "termsOfService" : "Please refer to SBI Lotus Project usage policy at developer.sbilotus.com/tos",
+    "contact" : {
+      "email" : "apisupport.eis@sbi.co.in"
+    },
+    "x-ibm-name" : "Surya Ghar Subsidy create amend Service"
+  },
+  "basePath" : "/SuryaGharSubsidy/create_Amend",
+  "schemes" : [ "https" ],
+  "paths" : {
+    "/accounts" : {
+      "post" : {
+        "tags" : [ "accountsDetail" ],
+        "summary" : "Surya Ghar Subsidy create amend Service",
+        "description" : "This operation will be used for Surya Ghar Subsidy service.",
+        "operationId" : "SuryaGharSubsidyCreateAmend_expDS",
+        "produces" : [ "application/json" ],
+        "consumes" : [ "application/json" ],
+        "parameters" : [ {
+          "name" : "AccessToken",
+          "type" : "string",
+          "required" : true,
+          "in" : "header",
+          "description" : "Access token generated through the Encryption process"
+        }, {
+          "name" : "Surya Ghar Subsidy create amend service",
+          "required" : true,
+          "description" : "Surya Ghar Subsidy create amend Service",
+          "schema" : {
+            "$ref" : "#/definitions/RequestDetails"
+          },
+          "in" : "body"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "schema" : {
+              "$ref" : "#/definitions/genericResponse"
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "schema" : {
+              "$ref" : "#/definitions/genericResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions" : {
+    "genericResponse" : {
+      "properties" : {
+        "REQUEST_REFERENCE_NUMBER" : {
+          "type" : "string",
+          "description" : "Unique Request Reference Number should be of format SBIXXYYDDDHHmmssSSSNNNNNN First 3 alphabets will always be SBI, XX will signify Channel Identifier (eg: LT for YONO channel),YYDDD will signify the Julian Date (eg: 26-02-2020 will be represented as 20057),HHmmssSSS will signify the current time in hours, minutes, second and milisecond,NNNNNN will signify running sequence number.",
+          "maxLength" : 25
+        },
+        "RESPONSE_STATUS" : {
+          "type" : "string",
+          "description" : "Signifies status of the response [0:SUCCESS, Else FAILURE]",
+          "maxLength" : 1
+        },
+        "ERROR_CODE" : {
+          "type" : "string",
+          "description" : "Error Code",
+          "enum" : [ "SI002:SI510|EIS APPLICATION INACTIVE", "SI569:BRANCH/TELLER MISSING", "SI570:BIT MAPPING NOT CONFIGURED", "SI014:SI500|EIS APPLICATION TIMEOUT", "SI011:SI520|INCORRECT DATA IN <TAG_NAME>", "SI011:SI520|MISSING FIELD <TAG_NAME>", "SI011:SI520|EXCESS FIELD PROVIDED <TAG_NAME>", "SI011:SI520|PARSING EXCEPTION", "SI001:SI530|INCORRECT REQUEST FORMATION", "SI001:SI530|DATA PROCESSING FAILED", "SI001:SI599|UNABLE TO PROCESS DUE TO TECHNICAL ERROR", "SI007:SI550|INTERNAL ERROR", "SI017:SI551|DB INTERNAL ERROR", "SI094:REFERENCE NUMBER NOT UNIQUE", "SI095:REFERENCE NUMBER NOT OF 25 CHAR", "SI096:REFERENCE NUMBER AND SOURCE ID MISMATCH", "SI097:REFERENCE NUMBER IS NOT OF FORMAT SBIXXX", "SI001:SI699|Any other unhandled exception received by EIS during service call with downstream", "<>002:<> will contain 2 character destination indicator followed by 002,indicates error being received from downstream application", "<>014:<> will contain 2 character destination indicator followed by 014.indicates timeout" ],
+          "maxLength" : 5
+        },
+        "ERROR_DESCRIPTION" : {
+          "type" : "string",
+          "description" : "Error Description",
+          "maxLength" : 100
+        }
+      },
+      "required" : [ "REQUEST_REFERENCE_NUMBER", "ERROR_CODE", "RESPONSE_STATUS", "ERROR_DESCRIPTION" ]
+    },
+    "RequestDetails" : {
+      "properties" : {
+        "REQUEST_REFERENCE_NUMBER" : {
+          "type" : "string",
+          "description" : "Unique Request Reference Number should be of format SBIXXYYDDDHHmmssSSSNNNNNN First 3 alphabets will always be SBI, XX will signify Channel Identifier (eg: LT for YONO channel),YYDDD will signify the Julian Date (eg: 26-02-2020 will be represented as 20057),HHmmssSSS will signify the current time in hours, minutes, second and milisecond,NNNNNN will signify running sequence number.",
+          "maxLength" : 25
+        },
+        "REQUEST" : {
+          "description" : "Payload Encrypted Request. Please refer PlainJSONRequest for the formation of REQUEST",
+          "type" : "string"
+        },
+        "DIGI_SIGN" : {
+          "description" : "Digital signature",
+          "type" : "string"
+        }
+      },
+      "required" : [ "REQUEST_REFERENCE_NUMBER", "REQUEST", "DIGI_SIGN" ]
+    },
+    "ResponseDetails" : {
+      "properties" : {
+        "REQUEST_REFERENCE_NUMBER" : {
+          "type" : "string",
+          "description" : "Unique Request Reference Number should be of format SBIXXYYDDDHHmmssSSSNNNNNN First 3 alphabets will always be SBI, XX will signify Channel Identifier (eg: LT for YONO channel),YYDDD will signify the Julian Date (eg: 26-02-2020 will be represented as 20057),HHmmssSSS will signify the current time in hours, minutes, second and milisecond,NNNNNN will signify running sequence number.",
+          "maxLength" : 25
+        },
+        "RESPONSE" : {
+          "description" : "Payload Encrypted Response. Please refer PlainJSONResponse for the formation of RESPONSE",
+          "type" : "string"
+        },
+        "RESPONSE_DATE" : {
+          "type" : "string",
+          "description" : "Response date and time stamp in format dd-MM-yyyy hh:mm:ss in plain text",
+          "maxLength" : 19
+        },
+        "DIGI_SIGN" : {
+          "description" : "Digital signature",
+          "type" : "string"
+        }
+      },
+      "required" : [ "REQUEST_REFERENCE_NUMBER", "RESPONSE", "RESPONSE_DATE", "DIGI_SIGN" ]
+    },
+    "PlainJSONRequest" : {
+      "properties" : {
+        "SOURCE_ID" : {
+          "description" : "Unique code assigned to identify from which channel the request is initiated",
+          "type" : "string"
+        },
+        "REQUEST_TELLER_ID" : {
+          "description" : "Request Teller ID(Maker ID)",
+          "type" : "string",
+          "maxLength" : 9
+        },
+        "REQUEST_AUTH_ID" : {
+          "description" : "Request AUTH ID",
+          "type" : "string",
+          "maxLength" : 7
+        },
+        "BRANCH_CODE" : {
+          "description" : "Unique code assigned to individual branch(physical/virtual) from where the request is initiated",
+          "type" : "string",
+          "maxLength" : 5
+        },
+        "ACTION" : {
+          "description" : "ACTION",
+          "type" : "string",
+          "maxLength" : 11
+        },
+        "LOAN_ACCOUNT_NUMBER" : {
+          "description" : "LOAN_ACCOUNT_NUMBER",
+          "type" : "string",
+          "maxLength" : 17
+        },
+        "LINKED_DEPOSIT_ACCOUNT_NUMBER" : {
+          "description" : "LINKED_DEPOSIT_ACCOUNT_NUMBER",
+          "type" : "string",
+          "maxLength" : 17
+        }
+      },
+      "required" : [ "BRANCH_CODE", "REQUEST_TELLER_ID", "REQUEST_AUTH_ID", "SOURCE_ID", "ACTION", "LOAN_ACCOUNT_NUMBER", "LINKED_DEPOSIT_ACCOUNT_NUMBER" ]
+    },
+    "PlainJSONResponse" : {
+      "properties" : {
+        "ERROR_CODE" : {
+          "description" : "Error code in case of failure response",
+          "enum" : [ "SI002:SI510|EIS APPLICATION INACTIVE", "SI569:BRANCH/TELLER MISSING", "SI570:BIT MAPPING NOT CONFIGURED", "SI014:SI500|EIS APPLICATION TIMEOUT", "SI011:SI520|INCORRECT DATA IN <TAG_NAME>", "SI011:SI520|MISSING FIELD <TAG_NAME>", "SI011:SI520|EXCESS FIELD PROVIDED <TAG_NAME>", "SI011:SI520|PARSING EXCEPTION", "SI001:SI530|INCORRECT REQUEST FORMATION", "SI001:SI530|DATA PROCESSING FAILED", "SI001:SI599|UNABLE TO PROCESS DUE TO TECHNICAL ERROR", "SI007:SI550|INTERNAL ERROR", "SI017:SI551|DB INTERNAL ERROR", "SI094:REFERENCE NUMBER NOT UNIQUE", "SI095:REFERENCE NUMBER NOT OF 25 CHAR", "SI096:REFERENCE NUMBER AND SOURCE ID MISMATCH", "SI097:REFERENCE NUMBER IS NOT OF FORMAT SBIXXX", "SI001:SI699|Any other unhandled exception received by EIS during service call with downstream", "<>002:<> will contain 2 character destination indicator followed by 002,indicates error being received from downstream application", "<>014:<> will contain 2 character destination indicator followed by 014.indicates timeout" ],
+          "type" : "string",
+          "maxLength" : 5
+        },
+        "ERROR_DESCRIPTION" : {
+          "type" : "string",
+          "description" : "Unique code assigned to individual branch(physical/virtual) from where the request is initiated-Not required for Public API",
+          "maxLength" : 100
+        },
+        "RESPONSE_STATUS" : {
+          "type" : "string",
+          "description" : "Response Status [0: Success, 1: Failure]",
+          "maxLength" : 1
+        },
+        "JOURNAL_NUMBER" : {
+          "description" : "ACCOUNT_NUMBER",
+          "type" : "string",
+          "maxLength" : 9
+        }
+      },
+      "required" : [ "ERROR_CODE", "ERROR_DESCRIPTION", "RESPONSE_STATUS" ]
+    }
+  }
+}
