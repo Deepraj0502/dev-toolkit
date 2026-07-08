@@ -9,9 +9,9 @@ export default class ZipEngine {
     // const templatePath = `/templates/${TEMPLATE_CONFIG.templateProject}.zip`;
     const response = await fetch(templateZip);
 
-    if (!response.ok) {
-      throw new Error(`Unable to load template from ${templatePath}.`);
-    }
+    // if (!response.ok) {
+    //   throw new Error(`Unable to load template from ${templatePath}.`);
+    // }
 
     const buffer = await response.arrayBuffer();
     this.zip = await JSZip.loadAsync(buffer);
