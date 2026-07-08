@@ -1,6 +1,0 @@
-1:"$Sreact.fragment"
-2:I[460,["177","static/chunks/app/layout-71724d239e0b0e9b.js"],"ThemeProvider"]
-3:I[7121,[],""]
-4:I[4581,[],""]
-:HL["/eis-toolkit/_next/static/css/d1b654100e792715.css","style"]
-0:{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/eis-toolkit/_next/static/css/d1b654100e792715.css","precedence":"next"}]],["$","html",null,{"lang":"en","suppressHydrationWarning":true,"children":["$","body",null,{"className":"__variable_5141f5 __variable_e5989c font-sans","children":["$","$L2",null,{"attribute":"class","defaultTheme":"system","enableSystem":true,"children":["$","$L3",null,{"parallelRouterKey":"children","template":["$","$L4",null,{}]}]}]}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"tZVApmrbgMr83T8oC3G7K"}
