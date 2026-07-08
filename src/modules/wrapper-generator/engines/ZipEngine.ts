@@ -1,12 +1,13 @@
 import JSZip from "jszip";
-import { TEMPLATE_CONFIG } from "../config/templateConfig";
+// import { TEMPLATE_CONFIG } from "../config/templateConfig";
+import templateZip from "../../assets/template/thirdPartyTestWrapper_expDS.zip";
 
 export default class ZipEngine {
   private zip: JSZip | null = null;
 
   async loadTemplate(): Promise<JSZip> {
-    const templatePath = `/templates/${TEMPLATE_CONFIG.templateProject}.zip`;
-    const response = await fetch(templatePath);
+    // const templatePath = `/templates/${TEMPLATE_CONFIG.templateProject}.zip`;
+    const response = await fetch(templateZip);
 
     if (!response.ok) {
       throw new Error(`Unable to load template from ${templatePath}.`);
