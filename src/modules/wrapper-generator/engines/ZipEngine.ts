@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 // import { TEMPLATE_CONFIG } from "../config/templateConfig";
-import templateZip from "../../assets/template/thirdPartyTestWrapper_expDS.zip";
+import templateZip from "../../../assets/template/thirdPartyTestWrapper_expDS.zip";
 
 export default class ZipEngine {
   private zip: JSZip | null = null;
