@@ -1,5 +1,5 @@
-import { useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
-import { CheckCircle2, FileArchive, Rocket, Settings2, UploadCloud } from "lucide-react";
+import {type Dispatch, type SetStateAction } from "react";
+import {  Rocket, Settings2 } from "lucide-react";
 import FormField from "./FormField";
 import SectionCard from "./SectionCard";
 import type { WrapperRequest } from "../types/Generator";
@@ -12,8 +12,8 @@ interface Props {
 }
 
 export default function GeneratorForm({ request, setRequest, generate, loading }: Props) {
-  const [templateFile, setTemplateFile] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+//   const [templateFile, setTemplateFile] = useState<string | null>(null);
+//   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function update(field: keyof WrapperRequest, value: string) {
     setRequest((prev) => ({
@@ -22,10 +22,10 @@ export default function GeneratorForm({ request, setRequest, generate, loading }
     }));
   }
 
-  function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setTemplateFile(file ? file.name : null);
-  }
+//   function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
+//     const file = event.target.files?.[0];
+//     setTemplateFile(file ? file.name : null);
+//   }
 
   return (
     <div className="flex flex-col gap-6">
