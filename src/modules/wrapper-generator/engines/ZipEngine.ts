@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { TEMPLATE_BYTES } from "../assets/template";
+import { TEMPLATE_BYTES } from "../../../assets/template";
 
 export default class ZipEngine {
   private zip: JSZip | null = null;
