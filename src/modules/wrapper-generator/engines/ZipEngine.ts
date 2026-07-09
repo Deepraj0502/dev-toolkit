@@ -7,6 +7,11 @@ export default class ZipEngine {
   async loadTemplate(): Promise<JSZip> {
     const response = await fetch(templateZip);
 
+    console.log("URL:", templateZip);
+    console.log("Status:", response.status);
+
+    const firstBytes = await response.clone().text();
+    console.log("TEXT:", firstBytes.substring(0,200));
     // if (!response.ok) {
     //   throw new Error(`Unable to load template from ${templatePath}.`);
     // }
