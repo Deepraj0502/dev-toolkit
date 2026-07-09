@@ -1,7 +1,7 @@
 export const TEMPLATE_CONFIG = {
   templateProject: "thirdPartyTestWrapper_expDS",
   templateService: "thirdPartyTestWrapper",
-  suffix: "_expDS",
+  suffix: "",
   replaceExtensions: [
     "esql",
     "msgflow",
