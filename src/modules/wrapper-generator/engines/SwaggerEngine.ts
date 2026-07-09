@@ -23,7 +23,7 @@ export default class SwaggerEngine {
         .replace(/"version"\s*:\s*"[^"]*"/, `"version": "1.0.0"`)
         .replace(/"basePath"\s*:\s*"[^"]*"/, `"basePath": "${basePath}"`)
         .replace(/"servers"\s*:\s*\[[^\]]*\]/, `"servers": [{ "url": "${basePath}" }]`)
-        .replace(/"operationId"\s*:\s*"[^"]*"/, `"operationId": "${request.apiName}Operation"`)
+        .replace(/"operationId"\s*:\s*"[^"]*"/, `"operationId": "${request.apiName}"`)
         .replace(/"tags"\s*:\s*\[[^\]]*\]/, `"tags": [{"name" : "${request.apiName}","description" : "${description}"}]`);
 
       return {
