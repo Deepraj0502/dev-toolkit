@@ -9,7 +9,7 @@ export default class SwaggerEngine {
   }): ProjectNode[] {
     const title = request.swaggerTitle || request.apiName;
     const description = request.swaggerDescription || title;
-    const basePath = request.basePath || `/${request.apiName.toLowerCase()}`;
+    const basePath = ("/" + request.basePath) || `/${request.apiName.toLowerCase()}`;
 
     return nodes.map((node) => {
       if (node.isDirectory || !node.textContent) {
@@ -24,7 +24,7 @@ export default class SwaggerEngine {
         .replace(/"basePath"\s*:\s*"[^"]*"/, `"basePath": "${basePath}"`)
         .replace(/"servers"\s*:\s*\[[^\]]*\]/, `"servers": [{ "url": "${basePath}" }]`)
         .replace(/"operationId"\s*:\s*"[^"]*"/, `"operationId": "${request.apiName}Operation"`)
-        .replace(/"tags"\s*:\s*\[[^\]]*\]/, `"tags": ["${request.apiName}"]`);
+        .replace(/"tags"\s*:\s*\[[^\]]*\]/, `"tags": [{"name" : "${request.apiName}","description" : "${description}"}]`);
 
       return {
         ...node,
