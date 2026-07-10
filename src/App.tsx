@@ -9,17 +9,19 @@ import {
   Moon,
   ShieldCheck,
   Sun,
+  Terminal,
   X,
   Zap,
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
+import CurlGenerator from "./modules/curl-generator/CurlGenerator";
 import { useTheme } from "./hooks/useTheme";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper"
+    "home" | "yaml" | "wrapper" | "curl"
   >("home");
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -83,6 +85,14 @@ function App() {
             active={activeTool === "wrapper"}
             expanded={sidebarOpen}
             onClick={() => setActiveTool("wrapper")}
+          />
+
+          <SidebarItem
+            icon={<Terminal size={20} />}
+            label="CURL Generator"
+            active={activeTool === "curl"}
+            expanded={sidebarOpen}
+            onClick={() => setActiveTool("curl")}
           />
 
         </nav>
@@ -177,6 +187,13 @@ function App() {
               />
 
               <ToolCard
+                title="CURL Generator"
+                desc="Generate signed GEN5/GEN6 CURL requests"
+                icon={<Terminal className="text-indigo-500" />}
+                onClick={() => setActiveTool("curl")}
+              />
+
+              <ToolCard
                 title="Swagger Automator"
                 desc="Coming Soon"
                 icon={<Zap className="text-slate-400" />}
@@ -204,6 +221,16 @@ function App() {
             <div className="animate-in zoom-in-95 duration-200">
 
               <WrapperGenerator />
+
+            </div>
+
+          )}
+
+          {activeTool === "curl" && (
+
+            <div className="animate-in zoom-in-95 duration-200">
+
+              <CurlGenerator />
 
             </div>
 
