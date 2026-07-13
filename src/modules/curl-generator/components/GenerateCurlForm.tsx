@@ -65,15 +65,15 @@ export default function GenerateCurlForm({
     });
   };
 
-  const changeMode = (mode: CurlMode) => {
-    setRequest({
-      ...request,
-      mode,
-      aesAlgo: mode === "GEN6" ? "AES-GCM" : "AES-CBC",
-      rsaAlgo: "RSA-OAEP",
-      digiSignAlgo: "RSASSA-PKCS1-V1_5",
-    });
-  };
+  // const changeMode = (mode: CurlMode) => {
+  //   setRequest({
+  //     ...request,
+  //     mode,
+  //     aesAlgo: mode === "GEN6" ? "AES-GCM" : "AES-CBC",
+  //     rsaAlgo: "RSA-OAEP",
+  //     digiSignAlgo: "RSASSA-PKCS1-V1_5",
+  //   });
+  // };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -174,7 +174,14 @@ export default function GenerateCurlForm({
               Request Mode
               <select
                 value={request.mode}
-                onChange={(e) => changeMode(e.target.value as CurlMode)}
+                onChange={(e) => {
+                  // changeMode(e.target.value as CurlMode);
+                  setRequest({
+                    ...request,
+                    mode: e.target.value as CurlMode,
+                    keyBytes: e.target.value === "GEN5" ? 16 : 12,
+                  });
+                }}
                 className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white px-3.5 py-2.5"
               >
                 {modeOptions.map((option) => (
@@ -186,16 +193,38 @@ export default function GenerateCurlForm({
             </label>
 
             <label className="flex flex-col gap-2 text-sm text-black dark:!text-slate-300">
-              Endpoint
-              <input
-                value={request.endpoint}
-                onChange={(e) => update("endpoint", e.target.value)}
-                placeholder="https://host/api"
-                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white px-3.5 py-2.5 text-black dark:!text-slate-100"
-              />
+              Key Bytes
+              <select
+                value={request.keyBytes}
+                onChange={(e) =>
+                  setRequest({
+                    ...request,
+                    keyBytes: parseInt(e.target.value) as 12 | 16,
+                  })
+                }
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white px-3.5 py-2.5"
+              >
+                {request.mode == "GEN6" && (
+                  <option key={12} value={12}>
+                    12 Bytes
+                  </option>
+                )}
+
+                <option key={16} value={16}>
+                  16 Bytes
+                </option>
+              </select>
             </label>
           </div>
-
+          <label className="flex flex-col gap-2 text-sm text-black dark:!text-slate-300">
+            Endpoint
+            <input
+              value={request.endpoint}
+              onChange={(e) => update("endpoint", e.target.value)}
+              placeholder="https://host/api"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white px-3.5 py-2.5 text-black dark:!text-slate-100"
+            />
+          </label>
           <label className="flex flex-col gap-2 text-sm text-black dark:!text-slate-300">
             Request Reference Number
             <div className="flex gap-2">
@@ -246,7 +275,9 @@ export default function GenerateCurlForm({
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-black dark:!text-slate-400 mb-2">AES</p>
+              <p className="text-xs text-black dark:!text-slate-400 mb-2">
+                AES
+              </p>
 
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 text-black dark:!text-white px-4 py-3">
                 {request.mode === "GEN6" ? "AES-GCM" : "AES-CBC"}
@@ -254,7 +285,9 @@ export default function GenerateCurlForm({
             </div>
 
             <div>
-              <p className="text-xs text-black dark:!text-slate-400 mb-2">RSA</p>
+              <p className="text-xs text-black dark:!text-slate-400 mb-2">
+                RSA
+              </p>
 
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 text-black dark:!text-white px-4 py-3">
                 RSA-OAEP
@@ -262,7 +295,9 @@ export default function GenerateCurlForm({
             </div>
 
             <div>
-              <p className="text-xs text-black dark:!text-slate-400 mb-2">Signature</p>
+              <p className="text-xs text-black dark:!text-slate-400 mb-2">
+                Signature
+              </p>
 
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 text-black dark:!text-white px-4 py-3">
                 SHA256withRSA
@@ -271,7 +306,9 @@ export default function GenerateCurlForm({
           </div>
           <div className="rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 ring-indigo-500 dark:text-white p-4">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-black dark:!text-slate-300">Headers</span>
+              <span className="font-semibold text-black dark:!text-slate-300">
+                Headers
+              </span>
 
               <button
                 type="button"
@@ -285,7 +322,10 @@ export default function GenerateCurlForm({
 
             <div className="space-y-3">
               {visibleHeaders.map(({ header, originalIndex }) => (
-                <div key={originalIndex} className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <div
+                  key={originalIndex}
+                  className="grid gap-3 sm:grid-cols-[1fr_auto]"
+                >
                   <div className="grid sm:grid-cols-2 gap-3">
                     <input
                       value={header.name}
@@ -334,7 +374,9 @@ export default function GenerateCurlForm({
 
                     update("requestPayload", formatted);
                   } catch {
-                    alert("Request Payload is not valid JSON — fix the syntax before beautifying.");
+                    alert(
+                      "Request Payload is not valid JSON — fix the syntax before beautifying.",
+                    );
                   }
                 }}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 ring-indigo-500 text-black dark:text-white px-3 py-1.5 text-xs text-black dark:!text-slate-300 dark:hover:bg-slate-700 cursor-pointer"
@@ -361,7 +403,9 @@ export default function GenerateCurlForm({
           <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white p-4">
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-black dark:!text-slate-400">Encryption</span>
+                <span className="text-black dark:!text-slate-400">
+                  Encryption
+                </span>
 
                 <p className="mt-1 font-medium text-emerald-400">
                   {request.mode === "GEN6"
@@ -371,7 +415,9 @@ export default function GenerateCurlForm({
               </div>
 
               <div>
-                <span className="text-black dark:!text-slate-400">Digital Signature</span>
+                <span className="text-black dark:!text-slate-400">
+                  Digital Signature
+                </span>
 
                 <p className="mt-1 font-medium text-indigo-400">
                   SHA256withRSA
