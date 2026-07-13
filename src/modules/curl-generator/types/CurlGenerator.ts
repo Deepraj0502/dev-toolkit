@@ -21,7 +21,7 @@ export interface CurlRequest {
   endpoint: string;
   requestReferenceNumber: string;
   requestPayload: string;
-
+  keyBytes: 12 | 16;
   headers: CurlHeader[];
 
   aesAlgo: "AES-GCM" | "AES-CBC";

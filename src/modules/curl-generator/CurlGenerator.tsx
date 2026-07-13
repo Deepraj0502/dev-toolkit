@@ -12,6 +12,7 @@ export default function CurlGenerator() {
   const [request, setRequest] = useState<CurlRequest>({
     mode: "GEN5",
     endpoint: "",
+    keyBytes: 12,
     requestReferenceNumber: generateRequestReferenceNumber(),
     requestPayload: "{}",
     headers: [
