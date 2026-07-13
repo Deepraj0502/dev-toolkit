@@ -147,6 +147,83 @@ export async function importPrivateKey(): Promise<CryptoKey> {
 
 }
 
+/* ==========================================================
+   AES CBC / PKCS5Padding
+   Note: Web Crypto's "AES-CBC" mode applies PKCS#7 padding,
+   which is equivalent to PKCS5 padding for AES's 16-byte
+   block size — no manual padding step is required.
+========================================================== */
+
+export async function aesEncryptCBC(
+  plainText: string,
+  bytes = 16
+): Promise<string> {
+
+  const keyBytes = encoder.encode(STATIC_AES_KEY);
+
+  const iv = toU8(keyBytes.slice(0, bytes));
+
+  const cryptoKey =
+    await crypto.subtle.importKey(
+      "raw",
+      toU8(keyBytes),
+      "AES-CBC",
+      false,
+      ["encrypt"]
+    );
+
+  const encrypted =
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-CBC",
+        iv,
+      },
+      cryptoKey,
+      toU8(encoder.encode(plainText))
+    );
+
+  return arrayBufferToBase64(encrypted);
+
+}
+
+
+
+/* ==========================================================
+   AES CBC Decrypt / PKCS5Padding
+========================================================== */
+
+export async function aesDecryptCBC(
+  cipherText: string,
+  bytes = 16
+): Promise<string> {
+
+  const keyBytes = encoder.encode(STATIC_AES_KEY);
+
+  const iv = toU8(keyBytes.slice(0, bytes));
+
+  const cryptoKey =
+    await crypto.subtle.importKey(
+      "raw",
+      toU8(keyBytes),
+      "AES-CBC",
+      false,
+      ["decrypt"]
+    );
+
+  const decrypted =
+    await crypto.subtle.decrypt(
+      {
+        name: "AES-CBC",
+        iv,
+      },
+      cryptoKey,
+      toU8(base64ToArrayBuffer(cipherText))
+    );
+
+  return decoder.decode(decrypted);
+
+}
+
 
 
 /* ==========================================================
@@ -154,10 +231,44 @@ export async function importPrivateKey(): Promise<CryptoKey> {
 ========================================================== */
 
 export async function aesEncryptGCM(
-  plainText: string
+  plainText: string,
+  bytes = 12
 ): Promise<string> {
 
   const keyBytes = encoder.encode(STATIC_AES_KEY);
+
+  const iv = toU8(keyBytes.slice(0, bytes));
+
+  const cryptoKey =
+    await crypto.subtle.importKey(
+      "raw",
+      toU8(keyBytes),
+      "AES-GCM",
+      false,
+      ["encrypt"]
+    );
+
+  const encrypted =
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv,
+        tagLength: 128
+      },
+      cryptoKey,
+      toU8(encoder.encode(plainText))
+    );
+
+  return arrayBufferToBase64(encrypted);
+
+}
+
+export async function  aesEncryptGCMwithKey(
+  plainText: string,
+  key: string
+): Promise<string> {
+
+  const keyBytes = encoder.encode(key);  
 
   const iv = toU8(keyBytes.slice(0, 12));
 
@@ -192,10 +303,44 @@ export async function aesEncryptGCM(
 ========================================================== */
 
 export async function aesDecryptGCM(
-  cipherText: string
+  cipherText: string,
+  bytes = 12
 ): Promise<string> {
 
   const keyBytes = encoder.encode(STATIC_AES_KEY);
+
+  const iv = toU8(keyBytes.slice(0, bytes));
+
+  const cryptoKey =
+    await crypto.subtle.importKey(
+      "raw",
+      toU8(keyBytes),
+      "AES-GCM",
+      false,
+      ["decrypt"]
+    );
+
+  const decrypted =
+    await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv,
+        tagLength: 128
+      },
+      cryptoKey,
+      toU8(base64ToArrayBuffer(cipherText))
+    );
+
+  return decoder.decode(decrypted);
+
+}
+
+export async function aesDecryptGCMwithKey(
+  cipherText: string,
+  key: string
+): Promise<string> {
+
+  const keyBytes = encoder.encode(key);
 
   const iv = toU8(keyBytes.slice(0, 12));
 
