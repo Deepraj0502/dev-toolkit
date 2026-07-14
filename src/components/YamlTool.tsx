@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, type ReactElement } from 'react';
 import {
   Clipboard, LayoutDashboard, Database,
-  Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
+  Settings, CheckCircle2, Eye, Terminal,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
   XCircle, Loader2, ListChecks
 } from 'lucide-react';
@@ -363,7 +363,7 @@ function buildYaml(formData: FormData): string {
 // Small presentational helpers
 // ============================================================================
 
-const severityIcon: Record<Severity, JSX.Element> = {
+const severityIcon: Record<Severity, ReactElement> = {
   error: <XCircle size={14} className="text-red-500 flex-none" />,
   warning: <AlertTriangle size={14} className="text-amber-400 flex-none" />,
   success: <CheckCircle2 size={14} className="text-emerald-400 flex-none" />,
