@@ -13,6 +13,7 @@ import {
 type Severity = 'error' | 'warning' | 'success';
 type StatementType = 'INSERT' | 'UPDATE' | 'DELETE' | 'SELECT' | 'MERGE' | 'UNKNOWN';
 type QueryStatus = 'passed' | 'warning' | 'error';
+type Environment = 'DEV' | 'SIT' | 'UAT' | 'PROD';
 
 interface ValidationMessage {
   queryNumber: number;
@@ -46,6 +47,7 @@ interface FormData {
   node: string;
   server: string;
   deploy: string;
+  environment: Environment;
   sql: string;
 }
 
@@ -60,9 +62,24 @@ interface ParsedStatement {
 // Constants
 // ============================================================================
 
-const ALLOWED_SCHEMAS = ['EISDEV', 'EISSIT', 'EISAPP'];
 const ALLOWED_STATEMENTS: StatementType[] = ['INSERT', 'UPDATE', 'DELETE', 'SELECT', 'MERGE'];
 const RESTRICTED_TABLES = ['URL_MAPPER', 'SYS_URL_MAPPER'];
+
+// The schema every table reference must resolve to for a given target
+// environment. DEV is the only environment where an unqualified table name
+// (no "SCHEMA." prefix) is also acceptable.
+const ENV_SCHEMA_MAP: Record<Environment, string> = {
+  DEV: 'EISDEV',
+  SIT: 'EISSIT',
+  UAT: 'EISAPP',
+  PROD: 'EISAPP',
+};
+const ENVIRONMENTS: Environment[] = ['DEV', 'SIT', 'UAT', 'PROD'];
+
+// Matches "SCHEMA.TABLE", "SCHEMA.SCHEMA.TABLE" etc. immediately following
+// a table-referencing keyword, so we only look at real table refs and not
+// arbitrary dotted expressions elsewhere in the statement.
+const TABLE_REF_REGEX = /(?:INSERT\s+INTO|UPDATE|FROM|JOIN|DELETE\s+FROM|MERGE\s+INTO)\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)/gi;
 
 // ============================================================================
 // Pure helper functions (kept outside the component to avoid re-creation
@@ -153,8 +170,105 @@ function validateQuotes(text: string): boolean {
   return quoteCount % 2 === 0;
 }
 
-function validateSchema(upperTrimmed: string): boolean {
-  return ALLOWED_SCHEMAS.some(schema => upperTrimmed.includes(schema));
+interface TableRef {
+  raw: string;
+  parts: string[];
+}
+
+/** Pulls every "SCHEMA.TABLE"-style reference out of a statement. */
+function extractTableRefs(text: string): TableRef[] {
+  const refs: TableRef[] = [];
+  TABLE_REF_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TABLE_REF_REGEX.exec(text)) !== null) {
+    const raw = match[1];
+    refs.push({ raw, parts: raw.split('.') });
+  }
+  return refs;
+}
+
+/**
+ * Enforces three related rules against every table reference in a statement:
+ *  - the same schema must be used consistently across the whole statement
+ *  - a schema can't be duplicated in the path (e.g. EISAPP.EISAPP.TABLE)
+ *  - the schema used must match the schema required by the selected target
+ *    environment (DEV/SIT/UAT/PROD), where DEV alone also permits omitting
+ *    the schema entirely
+ */
+function validateSchemaAndEnvironment(
+  text: string,
+  statementType: StatementType,
+  environment: Environment
+): ValidationMessage[] {
+  if (!['INSERT', 'UPDATE', 'DELETE', 'SELECT', 'MERGE'].includes(statementType)) return [];
+
+  const refs = extractTableRefs(text);
+  if (refs.length === 0) return [];
+
+  const expectedSchema = ENV_SCHEMA_MAP[environment];
+  const notes: { severity: Severity; message: string }[] = [];
+  const schemasUsed = new Set<string>();
+
+  refs.forEach(ref => {
+    if (ref.parts.length > 2) {
+      // e.g. EISAPP.EISAPP.CACHE_DETAILS
+      notes.push({ severity: 'error', message: `Duplicate/double schema in table reference "${ref.raw}".` });
+      schemasUsed.add(ref.parts[0].toUpperCase());
+      return;
+    }
+
+    if (ref.parts.length === 1) {
+      // No schema prefix at all.
+      if (environment === 'DEV') {
+        notes.push({ severity: 'success', message: `No schema on "${ref.raw}" (allowed for DEV).` });
+      } else {
+        notes.push({ severity: 'error', message: `Missing schema on table "${ref.raw}". ${environment} requires "${expectedSchema}".` });
+      }
+      return;
+    }
+
+    const schema = ref.parts[0].toUpperCase();
+    schemasUsed.add(schema);
+    if (schema !== expectedSchema) {
+      notes.push({ severity: 'error', message: `Invalid schema "${schema}" on "${ref.raw}". ${environment} requires "${expectedSchema}".` });
+    } else {
+      notes.push({ severity: 'success', message: `Schema "${schema}" matches ${environment} environment.` });
+    }
+  });
+
+  if (schemasUsed.size > 1) {
+    notes.unshift({
+      severity: 'error',
+      message: `All tables in a query must use the same schema — found: ${[...schemasUsed].join(', ')}.`,
+    });
+  }
+
+  return notes.map(n => ({ queryNumber: 0, line: 0, severity: n.severity, message: n.message }));
+}
+
+/** Renders a string with spaces swapped for a visible glyph, for display in messages. */
+function visualizeSpaces(value: string): string {
+  return value.replace(/ /g, '\u2423');
+}
+
+/**
+ * Rule: flag string literal values that carry leading/trailing or repeated
+ * ("double") spaces — a common source of silent data mismatches.
+ */
+function findSpacingIssues(text: string): { value: string; issues: string[] }[] {
+  const findings: { value: string; issues: string[] }[] = [];
+  const literalMatches = [...text.matchAll(/'([^']*)'/g)];
+
+  literalMatches.forEach(m => {
+    const value = m[1];
+    const issues: string[] = [];
+    if (/^ /.test(value)) issues.push('leading space');
+    if (/ $/.test(value)) issues.push('trailing space');
+    if (/ {2,}/.test(value)) issues.push('double space');
+    if (issues.length > 0) findings.push({ value, issues });
+  });
+
+  return findings;
 }
 
 function validateInsertColumnsMatchValues(text: string): { valid: boolean; cols: number; vals: number } | null {
@@ -174,7 +288,12 @@ function isRestrictedTableViolation(upperTrimmed: string): boolean {
 }
 
 /** Runs every business rule against a single parsed statement. */
-function validateStatement(stmt: ParsedStatement, queryNumber: number, sql: string): ValidationMessage[] {
+function validateStatement(
+  stmt: ParsedStatement,
+  queryNumber: number,
+  sql: string,
+  environment: Environment
+): ValidationMessage[] {
   const messages: ValidationMessage[] = [];
   const line = getLineNumber(sql, stmt.startIndex);
   const upper = stmt.trimmedText.toUpperCase();
@@ -209,14 +328,16 @@ function validateStatement(stmt: ParsedStatement, queryNumber: number, sql: stri
     push('success', 'Quotes balanced.');
   }
 
-  // Rule 1: allowed schema (INSERT/UPDATE/DELETE only)
-  if (['INSERT', 'UPDATE', 'DELETE'].includes(statementType)) {
-    if (!validateSchema(upper)) {
-      push('error', `Invalid schema. Allowed: ${ALLOWED_SCHEMAS.join(', ')}.`);
-    } else {
-      push('success', 'Allowed schema.');
-    }
-  }
+  // Rule 1: schema must be consistent across the statement, non-duplicated,
+  // and must match the schema required by the selected target environment.
+  validateSchemaAndEnvironment(stmt.text, statementType, environment).forEach(n =>
+    push(n.severity, n.message)
+  );
+
+  // Rule: flag stray leading/trailing/double spaces inside string literal values.
+  findSpacingIssues(stmt.text).forEach(({ value, issues }) => {
+    push('warning', `Spacing issue (${issues.join(', ')}) in value: "${visualizeSpaces(value)}".`);
+  });
 
   // Rule 6: INSERT column/value count match
   if (statementType === 'INSERT') {
@@ -285,13 +406,13 @@ function detectDuplicateCacheKeys(queryReports: QueryReport[]): void {
   });
 }
 
-/** Runs the full validation pipeline (rules 1-11) over raw SQL text. */
-function validateSql(sql: string): ValidationSummary {
+/** Runs the full validation pipeline over raw SQL text for a given target environment. */
+function validateSql(sql: string, environment: Environment): ValidationSummary {
   const statements = parseQueries(sql);
 
   const queryReports: QueryReport[] = statements.map((stmt, i) => {
     const queryNumber = i + 1;
-    const messages = validateStatement(stmt, queryNumber, sql);
+    const messages = validateStatement(stmt, queryNumber, sql, environment);
     const status: QueryStatus = messages.some(m => m.severity === 'error')
       ? 'error'
       : messages.some(m => m.severity === 'warning')
@@ -386,7 +507,7 @@ const statusBadgeClass: Record<QueryStatus, string> = {
 // ============================================================================
 
 export default function YamlTool({ onBack }: { onBack: () => void }) {
-  const [formData, setFormData] = useState<FormData>({ apiName: '', node: '', server: '', deploy: 'false', sql: '' });
+  const [formData, setFormData] = useState<FormData>({ apiName: '', node: '', server: '', deploy: 'false', environment: 'DEV', sql: '' });
   const [output, setOutput] = useState('');
   const [summary, setSummary] = useState<ValidationSummary | null>(null);
   const [copied, setCopied] = useState(false);
@@ -423,17 +544,17 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
 
   // -- Validate SQL -----------------------------------------------------------
   const handleValidate = useCallback(() => {
-    const result = validateSql(formData.sql);
+    const result = validateSql(formData.sql, formData.environment);
     setSummary(result);
     setOutput('');
     requestAnimationFrame(() => {
       firstErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-  }, [formData.sql]);
+  }, [formData.sql, formData.environment]);
 
   // -- Generate YAML -----------------------------------------------------------
   const handleGenerateYaml = useCallback(() => {
-    const result = validateSql(formData.sql);
+    const result = validateSql(formData.sql, formData.environment);
     setSummary(result);
 
     if (result.totalErrors > 0) {
@@ -487,28 +608,45 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
   }, [summary]);
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col gap-6 font-sans">
-      <div className="flex-none flex items-center justify-between">
+    <div className="min-h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col gap-4 sm:gap-6 font-sans">
+      <div className="flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <button onClick={onBack} className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:opacity-75 transition-all">
           <LayoutDashboard size={20} /> Back to Dashboard
         </button>
 
         {toast && (
-          <div className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 ${toast.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+          <div className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 w-fit ${toast.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
             {toast.type === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
             {toast.message}
           </div>
         )}
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden min-h-0">
-        <div className="flex-1 flex flex-col gap-6 min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col gap-4 sm:gap-6 min-h-0">
           <div className="flex-none bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <h3 className="font-bold mb-3 flex items-center gap-2 dark:text-white text-sm uppercase tracking-wider">
               <Settings size={16} className="text-indigo-500" /> Environment
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <input placeholder="API Name" value={formData.apiName} className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white" onChange={e => setFormData({ ...formData, apiName: e.target.value })} />
+              <div className="relative">
+                <select
+                  value={formData.environment}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white appearance-none cursor-pointer"
+                  onChange={e => setFormData({ ...formData, environment: e.target.value as Environment })}
+                  title="Target environment — determines the required table schema during validation"
+                >
+                  {ENVIRONMENTS.map(env => (
+                    <option key={env} value={env}>
+                      {env} ({ENV_SCHEMA_MAP[env]}{env === 'DEV' ? ' or none' : ''})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown size={14} />
+                </div>
+              </div>
               <div className="relative">
                 <select
                   value={formData.deploy}
@@ -527,19 +665,19 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          <div className="flex-1 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-0">
+          <div className="flex-1 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-0">
             <h3 className="font-bold mb-3 flex items-center gap-2 dark:text-white text-sm uppercase tracking-wider">
               <Database size={16} className="text-indigo-500" /> SQL Script Editor
             </h3>
             <textarea
               ref={textareaRef}
               value={formData.sql}
-              className="flex-1 w-full p-4 font-mono text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 ring-indigo-500 dark:text-white resize-none"
+              className="flex-1 w-full min-h-[160px] p-4 font-mono text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 ring-indigo-500 dark:text-white resize-none"
               placeholder="Paste SQL here..."
               onChange={e => updateSql(e.target.value)}
             />
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={handleFormat}
                 disabled={isFormatting || !formData.sql.trim()}
@@ -569,19 +707,19 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800 flex flex-col shadow-2xl overflow-hidden min-h-0 h-full">
-          <div className="flex-none p-4 bg-slate-900 flex justify-between items-center border-b border-slate-800">
+        <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800 flex flex-col shadow-2xl overflow-hidden h-full min-h-[420px] lg:min-h-0">
+          <div className="flex-none p-3 sm:p-4 bg-slate-900 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-slate-800">
             <div className="flex items-center gap-2">
-              <Terminal size={16} className="text-slate-500" />
+              <Terminal size={16} className="text-slate-500 flex-none" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
                 {summary
                   ? hasBlockingErrors ? 'Log: Build Failed' : 'Log: Validation Report'
                   : 'Log: Configuration'}
               </span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               {summaryBadge && (
-                <div className="flex items-center gap-3 text-[10px] font-bold font-mono uppercase tracking-wider">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold font-mono uppercase tracking-wider">
                   <span className="text-red-400">Errors: {summaryBadge.errors}</span>
                   <span className="text-amber-400">Warnings: {summaryBadge.warnings}</span>
                   <span className="text-emerald-400">Passed: {summaryBadge.passed}</span>
@@ -599,7 +737,7 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 font-mono text-sm leading-relaxed custom-scrollbar min-h-0 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-xs sm:text-sm leading-relaxed custom-scrollbar min-h-0 space-y-6">
 
             {/* --- Validation report --- */}
             {summary && (
@@ -620,8 +758,8 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
                 )}
 
                 {summary.queryReports.map(qr => (
-                  <div key={qr.queryNumber} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div key={qr.queryNumber} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-slate-300 font-bold text-xs uppercase tracking-wider">
                         Query {qr.queryNumber} <span className="text-slate-600">· Ln {qr.startLine} · {qr.statementType}</span>
                       </span>
@@ -637,13 +775,13 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
                           <div
                             key={i}
                             ref={isFirstBlockingError ? firstErrorRef : undefined}
-                            className="flex items-start gap-2 text-xs"
+                            className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs"
                           >
                             {severityIcon[m.severity]}
-                            <span className={severityTextClass[m.severity]}>{m.message}</span>
+                            <span className={`${severityTextClass[m.severity]} break-words`}>{m.message}</span>
                             <button
                               onClick={() => jumpToLine(m.line)}
-                              className="text-slate-600 hover:text-indigo-400 whitespace-nowrap ml-auto transition-colors"
+                              className="text-slate-600 hover:text-indigo-400 whitespace-nowrap sm:ml-auto transition-colors"
                             >
                               Ln {m.line}
                             </button>
