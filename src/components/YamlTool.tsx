@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, type ReactElement } from 'react';
 import {
   Clipboard, LayoutDashboard, Database,
-  Settings, CheckCircle2, Eye, Terminal,
+  Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
   XCircle, Loader2, ListChecks
 } from 'lucide-react';
@@ -406,6 +406,33 @@ function detectDuplicateCacheKeys(queryReports: QueryReport[]): void {
   });
 }
 
+/**
+ * Looks at every table reference in the SQL and returns whichever known
+ * schema (EISDEV/EISSIT/EISAPP) appears most often, or null if none is
+ * used yet. Used to auto-pick a sensible default Environment so the
+ * dropdown doesn't silently disagree with SQL the person just pasted.
+ */
+function detectDominantSchema(sql: string): string | null {
+  const counts: Record<string, number> = {};
+  parseQueries(sql).forEach(stmt => {
+    extractTableRefs(stmt.text).forEach(ref => {
+      if (ref.parts.length >= 2) {
+        const schema = ref.parts[0].toUpperCase();
+        counts[schema] = (counts[schema] ?? 0) + 1;
+      }
+    });
+  });
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return null;
+  return entries.sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function schemaToEnvironment(schema: string): Environment | null {
+  const match = (Object.entries(ENV_SCHEMA_MAP) as [Environment, string][])
+    .find(([, s]) => s === schema);
+  return match ? match[0] : null;
+}
+
 /** Runs the full validation pipeline over raw SQL text for a given target environment. */
 function validateSql(sql: string, environment: Environment): ValidationSummary {
   const statements = parseQueries(sql);
@@ -514,6 +541,7 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
   const [isFormatting, setIsFormatting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [environmentTouched, setEnvironmentTouched] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const firstErrorRef = useRef<HTMLDivElement | null>(null);
@@ -525,7 +553,14 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
     toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const updateSql = (sql: string) => setFormData(prev => ({ ...prev, sql }));
+  const updateSql = (sql: string) => {
+    setFormData(prev => {
+      if (environmentTouched) return { ...prev, sql };
+      const detectedSchema = detectDominantSchema(sql);
+      const detectedEnv = detectedSchema ? schemaToEnvironment(detectedSchema) : null;
+      return { ...prev, sql, environment: detectedEnv ?? prev.environment };
+    });
+  };
 
   // -- Format SQL -----------------------------------------------------------
   const handleFormat = useCallback(async () => {
@@ -634,8 +669,11 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
                 <select
                   value={formData.environment}
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white appearance-none cursor-pointer"
-                  onChange={e => setFormData({ ...formData, environment: e.target.value as Environment })}
-                  title="Target environment — determines the required table schema during validation"
+                  onChange={e => {
+                    setEnvironmentTouched(true);
+                    setFormData(prev => ({ ...prev, environment: e.target.value as Environment }));
+                  }}
+                  title="Target environment — determines the required table schema during validation. Auto-detected from your SQL until you pick one manually."
                 >
                   {ENVIRONMENTS.map(env => (
                     <option key={env} value={env}>
@@ -704,6 +742,16 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
                 Generate YAML
               </button>
             </div>
+
+            {summary && hasBlockingErrors && (
+              <div className="mt-3 flex items-start gap-2 text-xs text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+                <ShieldAlert size={14} className="flex-none mt-0.5" />
+                <span>
+                  {summary.totalErrors} validation error{summary.totalErrors !== 1 ? 's' : ''} must be fixed before YAML can be generated —
+                  see the report on the right. If it's a schema error, check the <strong>Environment</strong> dropdown ({formData.environment}) matches the schema in your SQL.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
