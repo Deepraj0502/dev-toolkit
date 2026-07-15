@@ -121,13 +121,18 @@ function splitArgs(str: string): string[] {
 }
 
 /**
- * Splits raw SQL text into individual statements, tracking each statement's
- * character offset (used to compute line numbers) and whether it was
- * properly terminated with a semicolon. Blank fragments and standalone
- * COMMIT statements are dropped, per business rules.
+ * Splits raw SQL text into every non-blank fragment (statements AND
+ * standalone COMMIT markers), tracking each fragment's character offset
+ * and whether it was properly terminated with a semicolon. Keeping COMMIT
+ * fragments in this lower-level parser (unlike parseQueries below) lets us
+ * check statement-to-COMMIT adjacency for the PROD commit rule.
  */
-function parseQueries(sql: string): ParsedStatement[] {
-  const statements: ParsedStatement[] = [];
+interface ParsedFragment extends ParsedStatement {
+  isCommit: boolean;
+}
+
+function parseAllFragments(sql: string): ParsedFragment[] {
+  const fragments: ParsedFragment[] = [];
   const rawParts = sql.split(';');
   let offset = 0;
 
@@ -137,18 +142,28 @@ function parseQueries(sql: string): ParsedStatement[] {
 
     const trimmed = part.trim();
     if (!trimmed) return;
-    if (trimmed.toUpperCase() === 'COMMIT') return;
 
     const isLastFragment = idx === rawParts.length - 1;
-    statements.push({
+    fragments.push({
       text: part,
       trimmedText: trimmed,
       startIndex,
       hasSemicolon: !isLastFragment,
+      isCommit: trimmed.toUpperCase() === 'COMMIT',
     });
   });
 
-  return statements;
+  return fragments;
+}
+
+/**
+ * Splits raw SQL text into individual functional statements only —
+ * standalone COMMIT statements are dropped, per business rules. Used by
+ * YAML generation and by most validation rules, which don't care about
+ * COMMIT placement.
+ */
+function parseQueries(sql: string): ParsedStatement[] {
+  return parseAllFragments(sql).filter(f => !f.isCommit);
 }
 
 function getStatementType(upperTrimmed: string): StatementType {
@@ -271,14 +286,78 @@ function findSpacingIssues(text: string): { value: string; issues: string[] }[] 
   return findings;
 }
 
-function validateInsertColumnsMatchValues(text: string): { valid: boolean; cols: number; vals: number } | null {
-  const colMatch = text.match(/\(([\s\S]*?)\)\s*VALUES/i);
-  const valMatch = text.match(/VALUES\s*\(([\s\S]*?)\)/i);
-  if (!colMatch || !valMatch) return null;
+/**
+ * Finds the ')' that balances the '(' at `openIndex`, tracking nesting
+ * depth and quoted strings so a value like TRUNC(SYSDATE) or a string
+ * containing ')' doesn't fool the match. Returns the inner content and the
+ * index of the closing paren, or null if unbalanced.
+ */
+function extractBalancedParen(text: string, openIndex: number): { content: string; endIndex: number } | null {
+  let depth = 0;
+  let inQuote = false;
+  for (let i = openIndex; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "'") inQuote = !inQuote;
+    if (!inQuote) {
+      if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0) return { content: text.slice(openIndex + 1, i), endIndex: i };
+      }
+    }
+  }
+  return null;
+}
 
-  const cols = splitArgs(colMatch[1]).length;
-  const vals = splitArgs(valMatch[1]).length;
-  return { valid: cols === vals, cols, vals };
+/** Extracts every `(...)` value tuple after VALUES, supporting multi-row INSERTs. */
+function extractValueTuples(text: string, scanFromIndex: number): string[] {
+  const tuples: string[] = [];
+  let i = scanFromIndex;
+  while (i < text.length) {
+    while (i < text.length && /[\s,]/.test(text[i])) i++;
+    if (text[i] !== '(') break;
+    const result = extractBalancedParen(text, i);
+    if (!result) break;
+    tuples.push(result.content);
+    i = result.endIndex + 1;
+  }
+  return tuples;
+}
+
+interface InsertMatchResult {
+  cols: number;
+  totalTuples: number;
+  mismatchedTuples: { tupleIndex: number; vals: number }[];
+  valid: boolean;
+}
+
+/**
+ * Compares the INSERT column list against every VALUES tuple's value count.
+ * Uses depth-aware paren matching (not regex) so values containing function
+ * calls like TRUNC(SYSDATE), TO_DATE(...), or literals like 'null'/NULL are
+ * handled correctly instead of truncating at the first nested ')'.
+ */
+function validateInsertColumnsMatchValues(text: string): InsertMatchResult | null {
+  const upper = text.toUpperCase();
+  const valuesMatch = upper.match(/\bVALUES\b/);
+  if (!valuesMatch || valuesMatch.index === undefined) return null;
+  const valuesIdx = valuesMatch.index;
+
+  const colOpenIdx = text.indexOf('(');
+  if (colOpenIdx === -1 || colOpenIdx > valuesIdx) return null; // no explicit column list to compare against
+
+  const colResult = extractBalancedParen(text, colOpenIdx);
+  if (!colResult) return null;
+  const cols = splitArgs(colResult.content).length;
+
+  const tuples = extractValueTuples(text, valuesIdx + 'VALUES'.length);
+  if (tuples.length === 0) return null;
+
+  const mismatchedTuples = tuples
+    .map((tuple, idx) => ({ tupleIndex: idx + 1, vals: splitArgs(tuple).length }))
+    .filter(t => t.vals !== cols);
+
+  return { cols, totalTuples: tuples.length, mismatchedTuples, valid: mismatchedTuples.length === 0 };
 }
 
 function isRestrictedTableViolation(upperTrimmed: string): boolean {
@@ -339,14 +418,16 @@ function validateStatement(
     push('warning', `Spacing issue (${issues.join(', ')}) in value: "${visualizeSpaces(value)}".`);
   });
 
-  // Rule 6: INSERT column/value count match
+  // Rule 6: INSERT column/value count match (every VALUES tuple, depth-aware)
   if (statementType === 'INSERT') {
     const match = validateInsertColumnsMatchValues(stmt.text);
     if (match) {
       if (!match.valid) {
-        push('error', `Column/value mismatch: ${match.cols} columns vs ${match.vals} values.`);
+        match.mismatchedTuples.forEach(t => {
+          push('error', `Column/value mismatch in VALUES row ${t.tupleIndex}${match.totalTuples > 1 ? ` of ${match.totalTuples}` : ''}: ${match.cols} columns vs ${t.vals} values.`);
+        });
       } else {
-        push('success', 'INSERT validation passed.');
+        push('success', `INSERT validation passed (${match.totalTuples} row${match.totalTuples !== 1 ? 's' : ''}).`);
       }
     }
   }
@@ -435,11 +516,30 @@ function schemaToEnvironment(schema: string): Environment | null {
 
 /** Runs the full validation pipeline over raw SQL text for a given target environment. */
 function validateSql(sql: string, environment: Environment): ValidationSummary {
-  const statements = parseQueries(sql);
+  const fragments = parseAllFragments(sql);
+  const statements = fragments.filter(f => !f.isCommit);
 
   const queryReports: QueryReport[] = statements.map((stmt, i) => {
     const queryNumber = i + 1;
     const messages = validateStatement(stmt, queryNumber, sql, environment);
+
+    // PROD rule: every functional query must be immediately followed by its
+    // own COMMIT; — checked against the original fragment order so blank
+    // lines/whitespace between them don't matter, but an intervening
+    // statement does.
+    if (environment === 'PROD') {
+      const positionInAll = fragments.indexOf(stmt);
+      const nextFragment = fragments[positionInAll + 1];
+      if (!nextFragment || !nextFragment.isCommit) {
+        messages.push({
+          queryNumber,
+          line: getLineNumber(sql, stmt.startIndex),
+          severity: 'error',
+          message: 'PROD requires a COMMIT; immediately after this query.',
+        });
+      }
+    }
+
     const status: QueryStatus = messages.some(m => m.severity === 'error')
       ? 'error'
       : messages.some(m => m.severity === 'warning')
@@ -472,15 +572,57 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
   };
 }
 
-/** Formats raw SQL using the `sql-formatter` package (PostgreSQL dialect). */
+/**
+ * Formats raw SQL using the `sql-formatter` package (PostgreSQL dialect,
+ * uppercase keywords) and then collapses each statement onto a single
+ * line — this matches how the query ends up embedded as a single YAML
+ * "Query:" string anyway, so a multi-line pretty-print just gets undone
+ * later. Line comments (using two dashes) are converted to block comments
+ * first, since collapsing newlines would otherwise swallow whatever
+ * follows a line comment into it.
+ */
 async function formatSql(sql: string): Promise<string> {
   const { format } = await import('sql-formatter');
-  return format(sql, {
+  const pretty = format(sql, {
     language: 'postgresql',
     keywordCase: 'upper',
     tabWidth: 4,
-    linesBetweenQueries: 2,
   });
+
+  const commentSafe = pretty.replace(/--([^\n]*)$/gm, (_m, comment) => `/*${comment} */`);
+
+  const rawParts = commentSafe.split(';');
+  const lines: string[] = [];
+  let pendingComment = '';
+
+  rawParts.forEach(part => {
+    const collapsed = part.replace(/\s+/g, ' ').trim();
+    if (!collapsed) return;
+
+    const comments = [...collapsed.matchAll(/\/\*.*?\*\//g)].map(m => m[0]).join(' ');
+    const codeOnly = collapsed.replace(/\/\*.*?\*\//g, ' ').replace(/\s+/g, ' ').trim();
+
+    if (!codeOnly) {
+      // A comment-only fragment (e.g. a trailing "-- note" that had nothing
+      // else before the next ';'). Carry it forward and attach it to the
+      // end of whichever real statement comes next, so no line ever starts
+      // with a comment — that would break keyword/statement-type detection.
+      pendingComment = pendingComment ? `${pendingComment} ${comments}` : comments;
+      return;
+    }
+
+    const allComments = [pendingComment, comments].filter(Boolean).join(' ');
+    pendingComment = '';
+    lines.push(allComments ? `${codeOnly} ${allComments};` : `${codeOnly};`);
+  });
+
+  // A trailing comment with no statement after it at all — attach to the end
+  // of the last statement instead of dropping it.
+  if (pendingComment && lines.length > 0) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/;$/, ` ${pendingComment};`);
+  }
+
+  return lines.join('\n\n');
 }
 
 /** Builds the final YAML string from form + validated SQL (unchanged core logic). */
