@@ -12,9 +12,11 @@ import {
   Terminal,
   X,
   Zap,
+  DatabaseZap
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
+import CacheGeneratorTool from "./components/CacheGeneratorTool";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
 import CurlGenerator from "./modules/curl-generator/CurlGenerator";
 import { useTheme } from "./hooks/useTheme";
@@ -30,7 +32,7 @@ import { loginCred } from "./utils/loginCred";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl"
+    "home" | "yaml" | "wrapper" | "curl" | "cache"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
@@ -147,6 +149,14 @@ function App() {
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("curl")}
               />
+
+              <SidebarItem
+                icon={<DatabaseZap size={20} />}
+                label="Cache Generator"
+                active={activeTool === "cache"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("cache")}
+              />
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -229,6 +239,13 @@ function App() {
                   />
 
                   <ToolCard
+                    title="Cache Generator"
+                    desc="Generate Third Party Cache automatically"
+                    icon={<DatabaseZap className="text-indigo-500" />}
+                    onClick={() => setActiveTool("cache")}
+                  />
+
+                  <ToolCard
                     title="Swagger Automator"
                     desc="Coming Soon"
                     icon={<Zap className="text-slate-400" />}
@@ -252,6 +269,12 @@ function App() {
               {activeTool === "curl" && (
                 <div className="animate-in zoom-in-95 duration-200">
                   <CurlGenerator />
+                </div>
+              )}
+
+              {activeTool === "cache" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <CacheGeneratorTool />
                 </div>
               )}
             </main>
