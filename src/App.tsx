@@ -274,7 +274,7 @@ function App() {
 
               {activeTool === "cache" && (
                 <div className="animate-in zoom-in-95 duration-200">
-                  <CacheGeneratorTool />
+                  <CacheGeneratorTool onBack={() => setActiveTool("home")} />
                 </div>
               )}
             </main>
