@@ -135,7 +135,7 @@ export async function aesDecryptCBC(
     throw new Error("AES-CBC decryption failed (bad key, IV, or padding)");
   }
 
-  return decipher.output.toString("utf8");
+  return decipher.output.toString();
 }
 
 /* ==========================================================
@@ -201,7 +201,7 @@ export async function aesDecryptGCMwithKey(
     throw new Error("AES-GCM authentication failed (bad key, IV, or tampered ciphertext)");
   }
 
-  return decipher.output.toString("utf8");
+  return decipher.output.toString();
 }
 
 /* ==========================================================
