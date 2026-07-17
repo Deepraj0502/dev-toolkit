@@ -12,11 +12,13 @@ import {
   Terminal,
   X,
   Zap,
-  DatabaseZap
+  DatabaseZap,
+  Server
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
 import CacheGeneratorTool from "./components/CacheGeneratorTool";
+import SftpUpload from "./components/SftpUpload";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
 import CurlGenerator from "./modules/curl-generator/CurlGenerator";
 import { useTheme } from "./hooks/useTheme";
@@ -157,6 +159,14 @@ function App() {
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("cache")}
               />
+
+              <SidebarItem
+                icon={<Server size={20} />}
+                label="SFTPr"
+                active={activeTool === "sftp"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("sftp")}
+              />
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -246,6 +256,13 @@ function App() {
                   />
 
                   <ToolCard
+                    title="SFTP"
+                    desc="Transfer files to server"
+                    icon={<Server className="text-indigo-500" />}
+                    onClick={() => setActiveTool("sftp")}
+                  />
+
+                  <ToolCard
                     title="Swagger Automator"
                     desc="Coming Soon"
                     icon={<Zap className="text-slate-400" />}
@@ -275,6 +292,12 @@ function App() {
               {activeTool === "cache" && (
                 <div className="animate-in zoom-in-95 duration-200">
                   <CacheGeneratorTool onBack={() => setActiveTool("home")} />
+                </div>
+              )}
+
+              {activeTool === "sftp" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <SftpUpload />
                 </div>
               )}
             </main>
