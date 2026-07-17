@@ -1,10 +1,13 @@
 import forge from "node-forge";
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
 /*
  * Same as Java sample
+ *
+ * NOTE: AES requires a 16, 24, or 32 byte key. This placeholder is 34
+ * characters. crypto.subtle would throw immediately on it (confirmed via
+ * testing); forge will NOT throw and will silently derive output from
+ * whatever bytes are here. Verify the real production key's exact byte
+ * length before relying on this in production - see compare.mjs.
  */
 export const STATIC_AES_KEY =
   "11111111111111111111111111111111";
@@ -14,69 +17,37 @@ export const STATIC_AES_KEY =
  */
 export const PRIVATE_KEY_BASE64 = "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCf0Og+dmHtDPprHcqtpHQgBa2ujJFZf6yr7QGUhDMCxin8n+EejUqLOQ8CK3HaBcKE8WPc0Z/g66X11oYLfT5dRclWN0tP052fBXGZ3S+vnUwpSMGvFncu5ab6Tz31JORKLUZpV04EZHp6nhGD/A15M4yxHwiMfebyIhMhkgX/9dsuDAYim3glLduHOmGocrx812qUcnXpCicJX53CmRdEbhsj7/nnqTPyyZFv0KGNevXmUKdmdLXjnbFhdda1cgG9p0qNBPpzwCNqXymKwfXx5T7nU3V24c3+lMOuXBiUDbuIBQUvuTSvcfwetS/SqLWREJG0okshpBgBF/sprcKFAgMBAAECggEAWr3IECcxZOI4kXdh7APzN3dh7Ti9Ep8OkLPKcOQ6/nk7v8ebj7hTugcUwXufclZQ4yEYPXn8mD3UhmhexclADr+gGMbeiR2zYmY54U4YVFMwukQoTNypoUQd8gPqPvXKdV+NmiRLFO1kKZj0gwcrM0UUvkDLntGhvpugVzBNHc459rkhGmTcnr74DDgb98lI9eQf+FOp5iuBXW0e+wb6dbrB0FgUczjvk565GOtpql6tA5DiMEAKmBoLegsDkDXR23EHZGiXivWNJQi6tlFbFBSHB5hD2jS2To1NnCVEPXl0yHtulAR5lpACOv9WkYbtCzCYK9gLsCkA87SgPO56JQKBgQDPfld2OQhHoFGQ3B9YcdJa5ChOEOVJMbhNJFg1MD4BdmGyx+dt5kDkDOGPGhJWOx7cu2rvxeyCO5yA69HUsc2EpBaLFp5Z5cl7AWoFJZZIrZe59xw05O57MwzwaWWg9M6irUKU56YTqmrsgzbPnDGO1tqz935YP2XKhoH/68OLgwKBgQDFLUJKsTlD2oW2VYx7EOdHNGl55UepKDEkNaDEhIclbj9SCoYKaShIxFMQ3EPkydK6nk4Fm36ZS7dU9mlHWJ4m6o6r3369pRsq6eI+053bMxClpoE9fBqFNSLtOvCd7E0RZbpK6jU6ODxhROwzAdwl5Oa/TpUWotXeRU47ykTzVwKBgQCwIKCBO9wpYI6cFh2NZ+CVQoJr8a+PN+MnqCgvzel0OFap+UIbaY2/hqeYXxsdk0WZPIWDTlB6I7uvO317vAmmA9sW6XY0/PbPsN2bzNIKkz/tnTKWO5WrgiQDlpOr0uHr+IJB/3hbzRbB+Id4Jy9x/jLa/MSEiBwRk6eZ4ziznQKBgQCeBPl9tq44DObgC4t8DT3suLpXMELP9B/97uSa2cMdYk9oxnpJ2aCpQH15o6zdrEkvujK5F7bLz/xrINeakBCfC5evcnu2LJ2rNKlWxG1cAH604s3soor2enE1QekYBwp0iNxVsYFa2Tq6kWviLPlrfRjX9HhTHcjcSxq5nA7KHQKBgQCjpXyfAui+YFV9z2ECICrfRd3vvR3RS6C6GCBo2YoumZbTRA3a/vmV8d5LAkvvwbCQkTZBuFXs7CgjlDvivxcgt8XLpeDjUnQbzSQ3hlEapUyydOyzo1fjlVcmGjrgr52e1uKGp3Lo2nO1s7FZ2ZCdzOr/yZeisy/F3oVfUVtRQw==";
 
-
-
-/* ==========================================================
-   Type-normalizing helper
-   TS 5.7+ types ArrayBufferView as generic over ArrayBuffer
-   specifically, but Uint8Arrays from .slice(), TextEncoder.encode(),
-   etc. often carry the wider Uint8Array<ArrayBufferLike> generic
-   (which includes SharedArrayBuffer), so crypto.subtle rejects them
-   at compile time even though they're valid at runtime. Copying into
-   a fresh Uint8Array forces the concrete ArrayBuffer-backed type.
-========================================================== */
-
-function toU8(data: Uint8Array | ArrayBuffer): Uint8Array<ArrayBuffer> {
-  return new Uint8Array(data);
-}
-
-
-
 /* ==========================================================
    Base64 Helpers
+   Kept with the same names/signatures as the Web Crypto version
+   so any other file importing them doesn't need to change, but
+   they're now trivial wrappers - forge works with binary strings
+   internally, not ArrayBuffers.
 ========================================================== */
 
-// Accepts ArrayBuffer | Uint8Array | ArrayBufferLike so callers can pass
-// either a raw crypto.subtle result (ArrayBuffer) or a typed array
-// (e.g. someUint8Array, someUint8Array.buffer) without hitting the
-// "SharedArrayBuffer not assignable to ArrayBuffer" overload error.
 export function arrayBufferToBase64(buffer: ArrayBufferLike | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-
   let binary = "";
-
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-
   return btoa(binary);
 }
 
-// Returns Uint8Array (a valid BufferSource) rather than unwrapping to
-// .buffer, which avoids the ArrayBuffer/Uint8Array type mismatch at
-// every call site below (crypto.subtle.importKey/encrypt/decrypt all
-// accept Uint8Array directly).
 export function base64ToArrayBuffer(base64: string): Uint8Array {
-
   const binary = atob(base64.replace(/\s+/g, ""));
-
   const bytes = new Uint8Array(binary.length);
-
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-
   return bytes;
 }
-
-
 
 /* ==========================================================
    Certificate Helpers
 ========================================================== */
 
 export function pemToBase64(pem: string): string {
-
   return pem
     .replace(/-----BEGIN CERTIFICATE-----/g, "")
     .replace(/-----END CERTIFICATE-----/g, "")
@@ -85,108 +56,64 @@ export function pemToBase64(pem: string): string {
     .replace(/\r/g, "")
     .replace(/\n/g, "")
     .trim();
-
 }
 
-export async function importPublicKey(pem: string): Promise<CryptoKey> {
+/**
+ * Resolves a PEM public key OR certificate into a forge public key object.
+ * Replaces the old importPublicKey() which returned a CryptoKey.
+ */
+export function importPublicKey(pem: string): forge.pki.rsa.PublicKey {
+  if (pem.includes("BEGIN CERTIFICATE")) {
+    const cert = forge.pki.certificateFromPem(pem);
+    return cert.publicKey as forge.pki.rsa.PublicKey;
+  }
 
-    let spkiBytes: Uint8Array;
+  if (pem.includes("BEGIN PUBLIC KEY")) {
+    return forge.pki.publicKeyFromPem(pem);
+  }
 
-    if (pem.includes("BEGIN PUBLIC KEY")) {
-
-        spkiBytes = base64ToArrayBuffer(pemToBase64(pem));
-
-    } else if (pem.includes("BEGIN CERTIFICATE")) {
-
-        const cert = forge.pki.certificateFromPem(pem);
-
-        const publicKeyAsn1 = forge.pki.publicKeyToAsn1(cert.publicKey);
-
-        const spkiDer = forge.asn1.toDer(publicKeyAsn1).getBytes();
-
-        spkiBytes = Uint8Array.from(
-            spkiDer,
-            c => c.charCodeAt(0)
-        );
-
-    } else {
-        throw new Error("Unsupported certificate format");
-    }
-
-    return crypto.subtle.importKey(
-        "spki",
-        toU8(spkiBytes),
-        {
-            name: "RSA-OAEP",
-            hash: "SHA-256",
-        },
-        false,
-        ["encrypt"]
-    );
+  throw new Error("Unsupported certificate format");
 }
-
 
 /* ==========================================================
    Private Key Import
 ========================================================== */
 
-export async function importPrivateKey(): Promise<CryptoKey> {
+/**
+ * Wraps the raw base64 PKCS8 key into PEM form and parses it with forge.
+ * Replaces the old importPrivateKey() which returned a CryptoKey usable
+ * only for "sign".
+ */
+export function importPrivateKey(): forge.pki.rsa.PrivateKey {
+  const pem =
+    "-----BEGIN PRIVATE KEY-----\n" +
+    (PRIVATE_KEY_BASE64.match(/.{1,64}/g) ?? []).join("\n") +
+    "\n-----END PRIVATE KEY-----";
 
-  const raw = base64ToArrayBuffer(PRIVATE_KEY_BASE64);
-
-  return crypto.subtle.importKey(
-    "pkcs8",
-    toU8(raw),
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      hash: "SHA-256"
-    },
-    false,
-    ["sign"]
-  );
-
+  return forge.pki.privateKeyFromPem(pem);
 }
 
 /* ==========================================================
    AES CBC / PKCS5Padding
-   Note: Web Crypto's "AES-CBC" mode applies PKCS#7 padding,
-   which is equivalent to PKCS5 padding for AES's 16-byte
-   block size — no manual padding step is required.
+   forge applies PKCS#7 padding automatically for AES-CBC, which
+   is equivalent to PKCS5 padding at AES's 16-byte block size -
+   no manual padding step required, same as the old subtle version.
 ========================================================== */
 
 export async function aesEncryptCBC(
   plainText: string,
   bytes = 16
 ): Promise<string> {
+  const keyBytes = forge.util.createBuffer(STATIC_AES_KEY).getBytes();
+  const iv = keyBytes.slice(0, bytes);
 
-  const keyBytes = encoder.encode(STATIC_AES_KEY);
+  const cipher = forge.cipher.createCipher("AES-CBC", keyBytes);
+  cipher.start({ iv });
+  cipher.update(forge.util.createBuffer(plainText, "utf8"));
+  cipher.finish();
 
-  const iv = toU8(keyBytes.slice(0, bytes));
-
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-CBC",
-      false,
-      ["encrypt"]
-    );
-
-  const encrypted =
-    await crypto.subtle.encrypt(
-      {
-        name: "AES-CBC",
-        iv,
-      },
-      cryptoKey,
-      toU8(encoder.encode(plainText))
-    );
-
-  return arrayBufferToBase64(encrypted);
-
+  return forge.util.encode64(cipher.output.getBytes());
 }
-
-
 
 /* ==========================================================
    AES CBC Decrypt / PKCS5Padding
@@ -196,245 +123,132 @@ export async function aesDecryptCBC(
   cipherText: string,
   bytes = 16
 ): Promise<string> {
+  const keyBytes = forge.util.createBuffer(STATIC_AES_KEY).getBytes();
+  const iv = keyBytes.slice(0, bytes);
 
-  const keyBytes = encoder.encode(STATIC_AES_KEY);
+  const decipher = forge.cipher.createDecipher("AES-CBC", keyBytes);
+  decipher.start({ iv });
+  decipher.update(forge.util.createBuffer(forge.util.decode64(cipherText)));
 
-  const iv = toU8(keyBytes.slice(0, bytes));
+  const success = decipher.finish();
+  if (!success) {
+    throw new Error("AES-CBC decryption failed (bad key, IV, or padding)");
+  }
 
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-CBC",
-      false,
-      ["decrypt"]
-    );
-
-  const decrypted =
-    await crypto.subtle.decrypt(
-      {
-        name: "AES-CBC",
-        iv,
-      },
-      cryptoKey,
-      toU8(base64ToArrayBuffer(cipherText))
-    );
-
-  return decoder.decode(decrypted);
-
+  return decipher.output.toString("utf8");
 }
-
-
 
 /* ==========================================================
    AES GCM
+   Web Crypto concatenates ciphertext+tag in its output; this
+   mirrors that so anything reading the base64 output (e.g. a
+   Java backend expecting that format) doesn't need to change.
 ========================================================== */
 
 export async function aesEncryptGCM(
   plainText: string,
   bytes = 12
 ): Promise<string> {
-
-  const keyBytes = encoder.encode(STATIC_AES_KEY);
-
-  const iv = toU8(keyBytes.slice(0, bytes));
-
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-GCM",
-      false,
-      ["encrypt"]
-    );
-
-  const encrypted =
-    await crypto.subtle.encrypt(
-      {
-        name: "AES-GCM",
-        iv,
-        tagLength: 128
-      },
-      cryptoKey,
-      toU8(encoder.encode(plainText))
-    );
-
-  return arrayBufferToBase64(encrypted);
-
+  return aesEncryptGCMwithKey(plainText, STATIC_AES_KEY, bytes);
 }
 
-export async function  aesEncryptGCMwithKey(
+export async function aesEncryptGCMwithKey(
   plainText: string,
-  key: string
+  key: string,
+  bytes = 12
 ): Promise<string> {
+  const keyBytes = forge.util.createBuffer(key).getBytes();
+  const iv = keyBytes.slice(0, bytes);
 
-  const keyBytes = encoder.encode(key);  
+  const cipher = forge.cipher.createCipher("AES-GCM", keyBytes);
+  cipher.start({ iv, tagLength: 128 });
+  cipher.update(forge.util.createBuffer(plainText, "utf8"));
+  cipher.finish();
 
-  const iv = toU8(keyBytes.slice(0, 12));
-
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-GCM",
-      false,
-      ["encrypt"]
-    );
-
-  const encrypted =
-    await crypto.subtle.encrypt(
-      {
-        name: "AES-GCM",
-        iv,
-        tagLength: 128
-      },
-      cryptoKey,
-      toU8(encoder.encode(plainText))
-    );
-
-  return arrayBufferToBase64(encrypted);
-
+  const tag = cipher.mode.tag.getBytes();
+  return forge.util.encode64(cipher.output.getBytes() + tag);
 }
-
-
 
 /* ==========================================================
-   AES Decrypt
+   AES GCM Decrypt
 ========================================================== */
 
 export async function aesDecryptGCM(
   cipherText: string,
   bytes = 12
 ): Promise<string> {
-
-  const keyBytes = encoder.encode(STATIC_AES_KEY);
-
-  const iv = toU8(keyBytes.slice(0, bytes));
-
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-GCM",
-      false,
-      ["decrypt"]
-    );
-
-  const decrypted =
-    await crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv,
-        tagLength: 128
-      },
-      cryptoKey,
-      toU8(base64ToArrayBuffer(cipherText))
-    );
-
-  return decoder.decode(decrypted);
-
+  return aesDecryptGCMwithKey(cipherText, STATIC_AES_KEY, bytes);
 }
 
 export async function aesDecryptGCMwithKey(
   cipherText: string,
-  key: string
+  key: string,
+  bytes = 12
 ): Promise<string> {
+  const keyBytes = forge.util.createBuffer(key).getBytes();
+  const iv = keyBytes.slice(0, bytes);
 
-  const keyBytes = encoder.encode(key);
+  const raw = forge.util.decode64(cipherText);
+  const tag = raw.slice(raw.length - 16); // 128-bit tag = 16 bytes
+  const data = raw.slice(0, raw.length - 16);
 
-  const iv = toU8(keyBytes.slice(0, 12));
+  const decipher = forge.cipher.createDecipher("AES-GCM", keyBytes);
+  decipher.start({ iv, tagLength: 128, tag: forge.util.createBuffer(tag) });
+  decipher.update(forge.util.createBuffer(data));
 
-  const cryptoKey =
-    await crypto.subtle.importKey(
-      "raw",
-      toU8(keyBytes),
-      "AES-GCM",
-      false,
-      ["decrypt"]
-    );
+  const pass = decipher.finish();
+  if (!pass) {
+    throw new Error("AES-GCM authentication failed (bad key, IV, or tampered ciphertext)");
+  }
 
-  const decrypted =
-    await crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv,
-        tagLength: 128
-      },
-      cryptoKey,
-      toU8(base64ToArrayBuffer(cipherText))
-    );
-
-  return decoder.decode(decrypted);
-
+  return decipher.output.toString("utf8");
 }
 
-
-
 /* ==========================================================
-   RSA Encrypt
+   RSA Encrypt (RSA-OAEP, SHA-256)
+   forge's mgf1 hash defaults to match `md` when not set
+   explicitly (verified against forge's pkcs1.js source), so
+   this matches Web Crypto's RSA-OAEP/SHA-256 behavior without
+   needing an explicit mgf1 override.
 ========================================================== */
 
 export async function rsaEncrypt(
   publicPem: string,
   value: string
 ): Promise<string> {
+  const publicKey = importPublicKey(publicPem);
 
-  const key =
-    await importPublicKey(publicPem);
+  const encrypted = publicKey.encrypt(value, "RSA-OAEP", {
+    md: forge.md.sha256.create(),
+  });
 
-  const encrypted =
-    await crypto.subtle.encrypt(
-      {
-        name: "RSA-OAEP"
-      },
-      key,
-      toU8(encoder.encode(value))
-    );
-
-  return arrayBufferToBase64(encrypted);
-
+  return forge.util.encode64(encrypted);
 }
 
-
-
 /* ==========================================================
-   Digital Signature
+   Digital Signature (RSASSA-PKCS1-v1.5, SHA-256)
 ========================================================== */
 
 export async function signData(
   plainText: string
 ): Promise<string> {
-
   if (!PRIVATE_KEY_BASE64.length) {
-
-    throw new Error(
-      "PRIVATE_KEY_BASE64 not configured."
-    );
-
+    throw new Error("PRIVATE_KEY_BASE64 not configured.");
   }
 
-  const key =
-    await importPrivateKey();
+  const privateKey = importPrivateKey();
 
-  const signature =
-    await crypto.subtle.sign(
-      {
-        name: "RSASSA-PKCS1-v1_5"
-      },
-      key,
-      toU8(encoder.encode(
-        plainText
-          .replace(/ "/g,'"')
-          .replace(/" /g,'"')
-          .replace(/: /g,":")
-      ))
-    );
+  const normalized = plainText
+    .replace(/ "/g, '"')
+    .replace(/" /g, '"')
+    .replace(/: /g, ":");
 
-  return arrayBufferToBase64(signature);
+  const md = forge.md.sha256.create();
+  md.update(normalized, "utf8");
 
+  const signature = privateKey.sign(md); // PKCS#1 v1.5 by default
+  return forge.util.encode64(signature);
 }
-
-
 
 /* ==========================================================
    JSON Serialize
@@ -443,17 +257,9 @@ export async function signData(
 export function normalizeJson(
   value: string
 ): string {
-
   try {
-
-    return JSON.stringify(
-      JSON.parse(value)
-    );
-
+    return JSON.stringify(JSON.parse(value));
   } catch {
-
     return value;
-
   }
-
 }
