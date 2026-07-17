@@ -34,7 +34,7 @@ import { loginCred } from "./utils/loginCred";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
