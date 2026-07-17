@@ -160,13 +160,15 @@ function App() {
                 onClick={() => setActiveTool("cache")}
               />
 
-              <SidebarItem
-                icon={<Server size={20} />}
-                label="SFTPr"
-                active={activeTool === "sftp"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("sftp")}
-              />
+              {(role === "MasterAdmin" || role === "Admin") && (
+                <SidebarItem
+                  icon={<Server size={20} />}
+                  label="SFTP"
+                  active={activeTool === "sftp"}
+                  expanded={sidebarOpen}
+                  onClick={() => setActiveTool("sftp")}
+                />
+              )}
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -255,12 +257,14 @@ function App() {
                     onClick={() => setActiveTool("cache")}
                   />
 
-                  <ToolCard
-                    title="SFTP"
-                    desc="Transfer files to server"
-                    icon={<Server className="text-indigo-500" />}
-                    onClick={() => setActiveTool("sftp")}
-                  />
+                  {(role === "MasterAdmin" || role === "Admin") && (
+                    <ToolCard
+                      title="SFTP"
+                      desc="Transfer files to server"
+                      icon={<Server className="text-indigo-500" />}
+                      onClick={() => setActiveTool("sftp")}
+                    />
+                  )}
 
                   <ToolCard
                     title="Swagger Automator"
