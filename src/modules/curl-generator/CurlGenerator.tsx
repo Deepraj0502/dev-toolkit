@@ -5,10 +5,15 @@ import CurlGeneratorEngine from "./engines/CurlGenerator";
 import type { CurlRequest, CurlResult } from "./types/CurlGenerator";
 import { generateRequestReferenceNumber } from "./utils/referenceGenerator";
 import { ToastContainer, toast } from 'react-toastify';
+import RawCurlRunner from "./components/RawCurlRunner";
 
 const engine = new CurlGeneratorEngine();
 
+type Mode = "generator" | "raw";
+
 export default function CurlGenerator() {
+  const [mode, setMode] = useState<Mode>("generator");
+
   const [request, setRequest] = useState<CurlRequest>({
     mode: "GEN5",
     endpoint: "",
@@ -56,29 +61,58 @@ export default function CurlGenerator() {
               Generate encrypted IBM EIS CURL requests for GEN5 and GEN6.
             </p>
           </div>
+
+          <div className="inline-flex rounded-full border border-slate-800 bg-slate-950 p-1">
+            <button
+              onClick={() => setMode("generator")}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                mode === "generator"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Generator
+            </button>
+            <button
+              onClick={() => setMode("raw")}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                mode === "raw"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Raw Runner
+            </button>
+          </div>
         </div>
 
-        {error ? (
-          <div className="rounded-3xl dark:border dark:border-red-700 bg-red-600 dark:bg-red-950/80 p-4 text-red-200">
-            {error}
-          </div>
-        ) : null}
+        {mode === "generator" ? (
+          <>
+            {error ? (
+              <div className="rounded-3xl dark:border dark:border-red-700 bg-red-600 dark:bg-red-950/80 p-4 text-red-200">
+                {error}
+              </div>
+            ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
-          <div className="min-w-0 h-full">
-            <GenerateCurlForm
-              request={request}
-              setRequest={setRequest}
-              certificateText={certificateText}
-              setCertificateText={setCertificateText}
-              onGenerate={generate}
-              loading={loading}
-            />
-          </div>
-          <div className="min-w-0 h-full">
-            <CurlResultPanel result={result} />
-          </div>
-        </div>
+            <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
+              <div className="min-w-0 h-full">
+                <GenerateCurlForm
+                  request={request}
+                  setRequest={setRequest}
+                  certificateText={certificateText}
+                  setCertificateText={setCertificateText}
+                  onGenerate={generate}
+                  loading={loading}
+                />
+              </div>
+              <div className="min-w-0 h-full">
+                <CurlResultPanel result={result} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <RawCurlRunner />
+        )}
       </div>
     </div>
   );

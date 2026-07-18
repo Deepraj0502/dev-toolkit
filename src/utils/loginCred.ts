@@ -8,7 +8,7 @@ export interface LoginCredType {
 export const loginCred: LoginCredType[] = [
     {
         username: "v1023943",
-        password: "8879",
+        password: "0509",
         key: "74390185264810935827104958372610",
         role: "MasterAdmin"
     },
@@ -25,9 +25,15 @@ export const loginCred: LoginCredType[] = [
         role: "Admin"
     },
     {
+        username: "v1024019",
+        password: "9960",
+        key: "97431086542189032567812934057612",
+        role: "Admin"
+    },
+    {
         username: "eisdev",
         password: "1234",
-        key: "0256378526474393587248658375562",
+        key: "02563785264743935872486508375562",
         role: "User"
     }
 ];
