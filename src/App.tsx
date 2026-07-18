@@ -13,7 +13,8 @@ import {
   X,
   Zap,
   DatabaseZap,
-  Server
+  Server,
+  Key, // Added for Certificate Configuration Icon
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
@@ -21,6 +22,7 @@ import CacheGeneratorTool from "./components/CacheGeneratorTool";
 import SftpUpload from "./components/SftpUpload";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
 import CurlGenerator from "./modules/curl-generator/CurlGenerator";
+import CertConfigPanel from "./components/CertConfigPanel"; // Added Import
 import { useTheme } from "./hooks/useTheme";
 import LoginPage from "./components/LoginPage";
 import {
@@ -34,7 +36,7 @@ import { loginCred } from "./utils/loginCred";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
@@ -86,7 +88,7 @@ function App() {
     }
   };
 
-  const handleLogout = () =>{
+  const handleLogout = () => {
     sessionStorage.clear();
     setaccessToken(null);
   };
@@ -117,7 +119,7 @@ function App() {
               </button>
             </div>
 
-            <nav className="flex-1 px-4 space-y-2 mt-4">
+            <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto custom-scrollbar">
               <SidebarItem
                 icon={<LayoutDashboard size={20} />}
                 label="Dashboard"
@@ -161,14 +163,23 @@ function App() {
               />
 
               {(role === "MasterAdmin" || role === "Admin") && (
-                <SidebarItem
-                  icon={<Server size={20} />}
-                  label="SFTP"
-                  active={activeTool === "sftp"}
-                  expanded={sidebarOpen}
-                  onClick={() => setActiveTool("sftp")}
-                />
+                <>
+                  <SidebarItem
+                    icon={<Server size={20} />}
+                    label="SFTP"
+                    active={activeTool === "sftp"}
+                    expanded={sidebarOpen}
+                    onClick={() => setActiveTool("sftp")}
+                  />
+                </>
               )}
+              <SidebarItem
+                icon={<Key size={20} />}
+                label="Cert Config"
+                active={activeTool === "cert"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("cert")}
+              />
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -202,11 +213,22 @@ function App() {
                   ? "Overview"
                   : activeTool === "yaml"
                     ? "YAML Generator"
-                    : "IBM ACE Wrapper Generator"}
+                    : activeTool === "wrapper"
+                      ? "IBM ACE Wrapper Generator"
+                      : activeTool === "curl"
+                        ? "CURL Generator"
+                        : activeTool === "cache"
+                          ? "Cache Generator"
+                          : activeTool === "sftp"
+                            ? "SFTP Transfer"
+                            : "Certificate & Key Configuration"}
               </h2>
 
               <div className="flex items-center gap-3">
-                <button className="bg-slate-50 dark:bg-slate-950 hover:bg-red-400 hover:text-white hover:dark:bg-red-900 cursor-pointer dark:text-white text-xs p-2 px-3 border border-slate-200 dark:border-slate-800 rounded-full" onClick={handleLogout}>
+                <button
+                  className="bg-slate-50 dark:bg-slate-950 hover:bg-red-400 hover:text-white hover:dark:bg-red-900 cursor-pointer dark:text-white text-xs p-2 px-3 border border-slate-200 dark:border-slate-800 rounded-full transition-colors"
+                  onClick={handleLogout}
+                >
                   Logout
                 </button>
                 <div className="text-right hidden sm:block">
@@ -258,13 +280,22 @@ function App() {
                   />
 
                   {(role === "MasterAdmin" || role === "Admin") && (
-                    <ToolCard
-                      title="SFTP"
-                      desc="Transfer files to server"
-                      icon={<Server className="text-indigo-500" />}
-                      onClick={() => setActiveTool("sftp")}
-                    />
+                    <>
+                      <ToolCard
+                        title="SFTP"
+                        desc="Transfer files to server"
+                        icon={<Server className="text-indigo-500" />}
+                        onClick={() => setActiveTool("sftp")}
+                      />
+                    </>
                   )}
+
+                  <ToolCard
+                    title="Cert Configuration"
+                    desc="Configure public certs, properties & JKS keystores"
+                    icon={<Key className="text-indigo-500" />}
+                    onClick={() => setActiveTool("cert")}
+                  />
 
                   <ToolCard
                     title="Swagger Automator"
@@ -304,6 +335,12 @@ function App() {
                   <SftpUpload />
                 </div>
               )}
+
+              {activeTool === "cert" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <CertConfigPanel />
+                </div>
+              )}
             </main>
           </div>
         </>
@@ -318,7 +355,11 @@ function SidebarItem({ icon, label, active, expanded, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${active ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none" : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+      className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
+        active
+          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none"
+          : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+      }`}
     >
       {icon}
       {expanded && <span className="font-semibold">{label}</span>}
@@ -330,7 +371,11 @@ function ToolCard({ title, desc, icon, onClick, disabled }: any) {
   return (
     <div
       onClick={!disabled ? onClick : undefined}
-      className={`p-8 rounded-3xl border transition-all ${disabled ? "bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 opacity-60" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:border-indigo-500 cursor-pointer"}`}
+      className={`p-8 rounded-3xl border transition-all ${
+        disabled
+          ? "bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 opacity-60"
+          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:border-indigo-500 cursor-pointer"
+      }`}
     >
       <div className="mb-6 w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
         {icon}
