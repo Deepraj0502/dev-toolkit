@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Terminal, Play, Loader2 } from "lucide-react";
+import {  Terminal, Play, Loader2 } from "lucide-react";
 import type { CurlResult } from "../types/CurlGenerator";
 import { ALLOWED_CURL_HOSTS, type ExecuteCurlResponse } from "../types/curlExec";
 import { runCurl } from "../engines/runCurl";
@@ -24,10 +24,6 @@ export default function CurlResultPanel({ result }: Props) {
       </div>
     );
   }
-
-  const copyText = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-  };
 
   const execute = async () => {
     setRunning(true);

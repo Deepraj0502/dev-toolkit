@@ -1,10 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import {
-  Clipboard,
   LayoutDashboard,
   Database,
   Settings,
-  CheckCircle2,
   Terminal,
   ChevronDown,
   Rocket,
@@ -607,7 +605,7 @@ export default function CacheGeneratorTool({ onBack }: { onBack: () => void }) {
   const [statements, setStatements] = useState<GeneratedStatement[] | null>(
     null,
   );
-  const [copied, setCopied] = useState<string | null>(null);
+  // const [copied, setCopied] = useState<string | null>(null);
 
   const set = <K extends keyof CacheFormState>(
     key: K,
@@ -677,12 +675,6 @@ export default function CacheGeneratorTool({ onBack }: { onBack: () => void }) {
       },
     ]);
   }, [form]);
-
-  const handleCopy = useCallback((label: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 2000);
-  }, []);
 
   const fullScript = statements
     ? buildScript(
