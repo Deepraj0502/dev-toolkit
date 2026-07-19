@@ -1,12 +1,40 @@
 import type { GeneratorEngine } from "../../common/GeneratorEngine";
-import type { CurlRequest, CurlResult } from "../types/CurlGenerator";
+import type {
+  CurlRequest,
+  CurlResult,
+  FieldSource,
+  StructureField,
+} from "../types/CurlGenerator";
 import {
-  aesEncryptCBC,
-  aesEncryptGCM,
+  DEFAULT_STRUCTURE,
+  getAlgorithmsForMode,
+} from "../types/CurlGenerator";
+import {
+  aesEncrypt,
   normalizeJson,
-  rsaEncrypt,
-  signData,
+  rsaEncryptWithMode,
+  signDataWithMode,
+  STATIC_AES_KEY,
 } from "../utils/crypto";
+
+function resolveStructure(request: CurlRequest): StructureField[] {
+  if (request.structureMode === "CUSTOM" && request.structure?.length) {
+    return request.structure;
+  }
+
+  return DEFAULT_STRUCTURE;
+}
+
+function resolveFieldValue(
+  field: StructureField,
+  values: Record<FieldSource, string>,
+): string {
+  if (field.source === "static") {
+    return field.staticValue ?? "";
+  }
+
+  return values[field.source] ?? "";
+}
 
 export default class CurlGenerator implements GeneratorEngine<
   CurlRequest,
@@ -16,81 +44,93 @@ export default class CurlGenerator implements GeneratorEngine<
     request: CurlRequest,
     options?: Record<string, unknown>,
   ): Promise<CurlResult> {
-    var requestValue = "";
     const certificate = String(options?.certificateText ?? "");
 
     if (!certificate.trim()) {
       throw new Error("Certificate not selected.");
     }
 
-    /*
-     * STEP 1
-     * Serialize JSON exactly like Java
-     */
+    const structure = resolveStructure(request);
+    const enabledFields = structure.filter(
+      (field) => field.enabled && field.name.trim(),
+    );
+
+    if (enabledFields.length === 0) {
+      throw new Error("At least one enabled field is required in the request layout.");
+    }
+
+    const neededSources = new Set(
+      enabledFields
+        .map((field) => field.source)
+        .filter((source): source is Exclude<FieldSource, "static"> => source !== "static"),
+    );
+
+    const algorithms =
+      request.mode === "CUSTOM"
+        ? {
+            aesAlgo: request.aesAlgo,
+            rsaAlgo: request.rsaAlgo,
+            digiSignAlgo: request.digiSignAlgo,
+            keyBytes: request.keyBytes,
+          }
+        : {
+            ...getAlgorithmsForMode(request.mode),
+            keyBytes:
+              request.mode === "GEN5" ? 16 : request.keyBytes,
+          };
 
     const payload = normalizeJson(request.requestPayload);
 
-    /*
-     * STEP 2
-     * REQUEST
-     * AES/GCM Encrypt Payload
-     */
-    if (request.aesAlgo === "AES-GCM") {
-      requestValue = await aesEncryptGCM(payload);
-    } else {
-      requestValue = await aesEncryptCBC(payload);
+    let requestValue = "";
+    if (neededSources.has("requestValue")) {
+      requestValue = await aesEncrypt(
+        algorithms.aesAlgo,
+        payload,
+        algorithms.keyBytes,
+      );
     }
 
-    /*
-     * STEP 3
-     * ACCESS TOKEN
-     * RSA Encrypt Static AES Key
-     */
+    let accessToken = "";
+    if (neededSources.has("accessToken")) {
+      accessToken = await rsaEncryptWithMode(
+        certificate,
+        STATIC_AES_KEY,
+        algorithms.rsaAlgo,
+      );
+    }
 
-    const accessToken = await rsaEncrypt(
-      certificate,
-      "11111111111111111111111111111111",
-    );
+    let digiSign = "";
+    if (neededSources.has("digiSign")) {
+      digiSign = await signDataWithMode(payload, algorithms.digiSignAlgo);
+    }
 
-    /*
-     * STEP 4
-     * Digital Signature
-     */
+    const computedValues: Record<FieldSource, string> = {
+      accessToken,
+      digiSign,
+      requestValue,
+      requestReferenceNumber: request.requestReferenceNumber,
+      static: "",
+    };
 
-    const digiSign = await signData(payload);
+    const bodyFields: Record<string, string> = {};
+    const structureHeaders: string[] = [];
 
-    /*
-     * STEP 5
-     */
+    for (const field of enabledFields) {
+      const value = resolveFieldValue(field, computedValues);
 
-    const body = JSON.stringify({
-      REQUEST_REFERENCE_NUMBER: request.requestReferenceNumber,
+      if (field.location === "header") {
+        structureHeaders.push(`-H "${field.name}: ${value}"`);
+      } else {
+        bodyFields[field.name] = value;
+      }
+    }
 
-      REQUEST: requestValue,
+    const staticHeaders = request.headers
+      .filter((header) => header.name.trim())
+      .map((header) => `-H "${header.name}: ${header.value}"`);
 
-      DIGI_SIGN: digiSign,
-    });
-
-    /*
-     * STEP 6
-     */
-
-    const headers = request.headers
-      .filter((h) => h.name.trim())
-      .map((h) => {
-        let value = h.value;
-
-        if (h.name.toLowerCase() === "accesstoken") {
-          value = accessToken;
-        }
-
-        return `-H "${h.name}: ${value}"`;
-      })
-      .join(" ");
-
-    /*
-     * STEP 7
-     */
+    const headers = [...staticHeaders, ...structureHeaders].join(" ");
+    const body = JSON.stringify(bodyFields);
 
     const curl = `curl -k -X POST "${request.endpoint}" \
 ${headers} \
@@ -98,11 +138,8 @@ ${headers} \
 
     return {
       curlCommand: curl,
-
       accessToken,
-
       requestValue,
-
       digiSign,
     };
   }

@@ -10,7 +10,7 @@ interface CopyButtonProps {
 export function CopyButton({ 
   text, 
   label = "Copy", 
-  className = "inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors" 
+  className = "inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer" 
 }: CopyButtonProps) {
   const { copied, copy } = useClipboard({ timeout: 2000 });
 
@@ -18,7 +18,7 @@ export function CopyButton({
     <button
       type="button"
       onClick={() => copy(text)}
-      className={`${className} ${copied ? "!bg-emerald-950/80 !text-emerald-300 border border-emerald-700/50" : ""}`}
+      className={`${className} ${copied ? "!bg-emerald-950/80 !text-emerald-300" : ""}`}
       title={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? (
