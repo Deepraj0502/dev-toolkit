@@ -82,6 +82,7 @@ function App() {
       const token = await getAccessToken(user.key);
       setaccessToken(token);
       setUsername(username);
+      setRole(user.role);
       toast.success("Login successful!");
     } else {
       toast.error("Invalid credentials");
@@ -162,7 +163,7 @@ function App() {
                 onClick={() => setActiveTool("cache")}
               />
 
-              {(role === "MasterAdmin" || role === "Admin") && (
+              {role === "MasterAdmin"  && (
                 <>
                   <SidebarItem
                     icon={<Server size={20} />}

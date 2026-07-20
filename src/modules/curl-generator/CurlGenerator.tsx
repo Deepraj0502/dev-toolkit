@@ -3,6 +3,7 @@ import CurlResultPanel from "./components/CurlResultPanel";
 import GenerateCurlForm from "./components/GenerateCurlForm";
 import CurlGeneratorEngine from "./engines/CurlGenerator";
 import type { CurlRequest, CurlResult } from "./types/CurlGenerator";
+import { DEFAULT_STRUCTURE } from "./types/CurlGenerator";
 import { generateRequestReferenceNumber } from "./utils/referenceGenerator";
 import { ToastContainer, toast } from 'react-toastify';
 import RawCurlRunner from "./components/RawCurlRunner";
@@ -15,18 +16,19 @@ export default function CurlGenerator() {
   const [mode, setMode] = useState<Mode>("generator");
 
   const [request, setRequest] = useState<CurlRequest>({
-    mode: "GEN5",
+    mode: "GEN6",
     endpoint: "",
     keyBytes: 12,
     requestReferenceNumber: generateRequestReferenceNumber(),
     requestPayload: "{}",
     headers: [
       { name: "Content-Type", value: "application/json" },
-      { name: "AccessToken", value: "" },
     ],
-    aesAlgo: "AES-CBC",
-    rsaAlgo: "RSA-OAEP",
+    aesAlgo: "AES-GCM",
+    rsaAlgo: "RSA-OAEP-SHA256",
     digiSignAlgo: "RSASSA-PKCS1-V1_5",
+    structureMode: "FIXED",
+    structure: DEFAULT_STRUCTURE,
   });
   
   const [result, setResult] = useState<CurlResult | null>(null);
@@ -53,19 +55,19 @@ export default function CurlGenerator() {
   return (
     <div className="min-h-screen text-slate-100 bg-transparent dark:bg-slate-900">
       <ToastContainer />
-      <div className="mx-auto flex max-w-[1700px] flex-col gap-6 p-6">
-        <div className="flex items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-black dark:!text-white">CURL Generator</h1>
-            <p className="text-slate-400 mt-2">
-              Generate encrypted IBM EIS CURL requests for GEN5 and GEN6.
+      <div className="mx-auto flex max-w-[1700px] flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-black dark:!text-white sm:text-3xl">CURL Generator</h1>
+            <p className="mt-2 text-sm text-slate-400 sm:text-base">
+              Generate encrypted IBM EIS CURL requests for GEN5, GEN6, and custom layouts.
             </p>
           </div>
 
-          <div className="inline-flex rounded-full border border-slate-800 bg-slate-950 p-1">
+          <div className="inline-flex w-full rounded-full border border-slate-800 bg-slate-950 p-1 sm:w-auto">
             <button
               onClick={() => setMode("generator")}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex-1 rounded-full px-4 py-2 text-xs font-medium transition-colors sm:flex-none sm:py-1.5 ${
                 mode === "generator"
                   ? "bg-indigo-600 text-white"
                   : "text-slate-400 hover:text-slate-200"
@@ -75,7 +77,7 @@ export default function CurlGenerator() {
             </button>
             <button
               onClick={() => setMode("raw")}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex-1 rounded-full px-4 py-2 text-xs font-medium transition-colors sm:flex-none sm:py-1.5 ${
                 mode === "raw"
                   ? "bg-indigo-600 text-white"
                   : "text-slate-400 hover:text-slate-200"
@@ -94,8 +96,8 @@ export default function CurlGenerator() {
               </div>
             ) : null}
 
-            <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
-              <div className="min-w-0 h-full">
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+              <div className="min-w-0 order-2 lg:order-1">
                 <GenerateCurlForm
                   request={request}
                   setRequest={setRequest}
@@ -105,7 +107,7 @@ export default function CurlGenerator() {
                   loading={loading}
                 />
               </div>
-              <div className="min-w-0 h-full">
+              <div className="min-w-0 order-1 lg:order-2">
                 <CurlResultPanel result={result} />
               </div>
             </div>

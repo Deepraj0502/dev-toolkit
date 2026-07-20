@@ -1,4 +1,5 @@
 import forge from "node-forge";
+import type { AesMode, DigiSignMode, RsaMode } from "../types/CurlGenerator";
 
 /*
  * Same as Java sample
@@ -216,10 +217,37 @@ export async function rsaEncrypt(
   publicPem: string,
   value: string
 ): Promise<string> {
+  return rsaEncryptWithMode(publicPem, value, "RSA-OAEP-SHA256");
+}
+
+function getRsaDigest(mode: RsaMode): forge.md.MessageDigest {
+  switch (mode) {
+    case "RSA-OAEP-SHA1":
+      return forge.md.sha1.create();
+    case "RSA-OAEP-SHA384":
+      return forge.md.sha384.create();
+    case "RSA-OAEP-SHA512":
+      return forge.md.sha512.create();
+    case "RSA-OAEP-SHA256":
+    default:
+      return forge.md.sha256.create();
+  }
+}
+
+export async function rsaEncryptWithMode(
+  publicPem: string,
+  value: string,
+  mode: RsaMode
+): Promise<string> {
   const publicKey = importPublicKey(publicPem);
 
+  if (mode === "RSAES-PKCS1-V1_5") {
+    const encrypted = publicKey.encrypt(value, "RSAES-PKCS1-V1_5");
+    return forge.util.encode64(encrypted);
+  }
+
   const encrypted = publicKey.encrypt(value, "RSA-OAEP", {
-    md: forge.md.sha256.create(),
+    md: getRsaDigest(mode),
   });
 
   return forge.util.encode64(encrypted);
@@ -232,22 +260,88 @@ export async function rsaEncrypt(
 export async function signData(
   plainText: string
 ): Promise<string> {
+  return signDataWithMode(plainText, "RSASSA-PKCS1-V1_5");
+}
+
+function normalizeForSignature(plainText: string): string {
+  return plainText
+    .replace(/ "/g, '"')
+    .replace(/" /g, '"')
+    .replace(/: /g, ":");
+}
+
+export async function signDataWithMode(
+  plainText: string,
+  mode: DigiSignMode
+): Promise<string> {
   if (!PRIVATE_KEY_BASE64.length) {
     throw new Error("PRIVATE_KEY_BASE64 not configured.");
   }
 
   const privateKey = importPrivateKey();
-
-  const normalized = plainText
-    .replace(/ "/g, '"')
-    .replace(/" /g, '"')
-    .replace(/: /g, ":");
-
+  const normalized = normalizeForSignature(plainText);
   const md = forge.md.sha256.create();
   md.update(normalized, "utf8");
 
-  const signature = privateKey.sign(md); // PKCS#1 v1.5 by default
+  if (mode === "RSA-PSS") {
+    const signWithOptions = privateKey.sign as (
+      digest: forge.md.MessageDigest,
+      scheme?: string,
+      schemeOptions?: Record<string, unknown>,
+    ) => string;
+    const signature = signWithOptions(md, "RSA-PSS", {
+      mgf: forge.mgf.mgf1.create(forge.md.sha256.create()),
+      saltLength: 20,
+    });
+    return forge.util.encode64(signature);
+  }
+
+  const signature = privateKey.sign(md);
   return forge.util.encode64(signature);
+}
+
+async function aesEncryptBlockMode(
+  algorithm: forge.cipher.Algorithm,
+  plainText: string,
+  bytes: number,
+  useIv: boolean
+): Promise<string> {
+  const keyBytes = forge.util.createBuffer(STATIC_AES_KEY).getBytes();
+  const cipher = forge.cipher.createCipher(algorithm, keyBytes);
+
+  if (useIv) {
+    cipher.start({ iv: keyBytes.slice(0, bytes) });
+  } else {
+    cipher.start();
+  }
+
+  cipher.update(forge.util.createBuffer(plainText, "utf8"));
+  cipher.finish();
+
+  return forge.util.encode64(cipher.output.getBytes());
+}
+
+export async function aesEncrypt(
+  mode: AesMode,
+  plainText: string,
+  bytes: 12 | 16 = 16
+): Promise<string> {
+  switch (mode) {
+    case "AES-GCM":
+      return aesEncryptGCM(plainText, bytes);
+    case "AES-CBC":
+      return aesEncryptCBC(plainText, bytes);
+    case "AES-CFB":
+      return aesEncryptBlockMode("AES-CFB", plainText, bytes, true);
+    case "AES-OFB":
+      return aesEncryptBlockMode("AES-OFB", plainText, bytes, true);
+    case "AES-CTR":
+      return aesEncryptBlockMode("AES-CTR", plainText, bytes, true);
+    case "AES-ECB":
+      return aesEncryptBlockMode("AES-ECB", plainText, bytes, false);
+    default:
+      throw new Error(`Unsupported AES mode: ${mode}`);
+  }
 }
 
 /* ==========================================================

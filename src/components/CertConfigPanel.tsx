@@ -3,6 +3,7 @@ import {
   ShieldCheck, FileText, Key, Server, Upload, AlertTriangle, 
   CheckCircle2, Loader2, Eye, FileSearch, X, Terminal 
 } from "lucide-react";
+import { CopyButton } from "./CopyButton";
 
 const BACKEND_URL = "http://10.177.44.29:4417";
 
@@ -392,7 +393,9 @@ export default function CertConfigPanel() {
                 <span className="text-emerald-400">Connected to {viewHost}</span>
               </div>
               <pre className="whitespace-pre-wrap break-all rounded-2xl border border-slate-800 bg-black/50 p-4 text-xs font-mono text-emerald-400 max-h-[380px] overflow-y-auto leading-relaxed">
-                {viewContent}
+                <CopyButton text={viewContent} className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer float-right"/>
+                <br/>
+                <p>{viewContent}</p>
               </pre>
             </div>
           )}

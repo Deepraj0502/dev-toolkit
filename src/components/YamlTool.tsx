@@ -5,6 +5,7 @@ import {
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
   XCircle, Loader2, ListChecks
 } from 'lucide-react';
+import { CopyButton } from './CopyButton';
 
 // ============================================================================
 // Types
@@ -751,15 +752,6 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
     }, 250);
   }, [formData, showToast]);
 
-  // -- Copy to clipboard -----------------------------------------------------------
-  const handleCopy = useCallback(() => {
-    const cleanOutput = output.replace(/\u00B7/g, ' ');
-    navigator.clipboard.writeText(cleanOutput);
-    setCopied(true);
-    showToast('Copied to clipboard', 'success');
-    setTimeout(() => setCopied(false), 2000);
-  }, [output, showToast]);
-
   // -- Jump the textarea cursor/selection to a given line -----------------------------------------------------------
   const jumpToLine = useCallback((line: number) => {
     const el = textareaRef.current;
@@ -916,13 +908,7 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
                 </div>
               )}
               {output && !hasBlockingErrors && (
-                <button
-                  onClick={handleCopy}
-                  className={`text-xs font-bold flex items-center gap-2 transition-colors ${copied ? 'text-emerald-400' : 'text-indigo-400 hover:text-indigo-300'}`}
-                >
-                  {copied ? <CheckCircle2 size={14} /> : <Clipboard size={14} />}
-                  {copied ? 'Copied to Clipboard' : 'Copy Clean YAML'}
-                </button>
+                <CopyButton text={output.replace(/\u00B7/g, ' ')} />
               )}
             </div>
           </div>
