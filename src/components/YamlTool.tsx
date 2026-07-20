@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, type ReactElement } from 'react';
 import {
-  Clipboard, LayoutDashboard, Database,
+  LayoutDashboard, Database,
   Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
   XCircle, Loader2, ListChecks
@@ -680,7 +680,6 @@ export default function YamlTool({ onBack }: { onBack: () => void }) {
   const [formData, setFormData] = useState<FormData>({ apiName: '', node: '', server: '', deploy: 'false', environment: 'DEV', sql: '' });
   const [output, setOutput] = useState('');
   const [summary, setSummary] = useState<ValidationSummary | null>(null);
-  const [copied, setCopied] = useState(false);
   const [isFormatting, setIsFormatting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
