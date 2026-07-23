@@ -1,7 +1,7 @@
-import { useState, useRef, type ChangeEvent } from "react";
+import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
 import { 
   ShieldCheck, FileText, Key, Server, Upload, AlertTriangle, 
-  CheckCircle2, Loader2, Eye, FileSearch, X, Terminal 
+  CheckCircle2, Loader2, Eye, FileSearch, X, Terminal, Tag 
 } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 
@@ -55,7 +55,9 @@ export default function CertConfigPanel() {
   const [selectedHost, setSelectedHost] = useState(ALLOWED_SERVERS[3]); // default .25
   const [fileType, setFileType] = useState<FileTypeKey>("cert");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [aliasName, setAliasName] = useState(""); // NEW: Alias state
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false); // NEW: Drag state
   
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<{
@@ -76,14 +78,11 @@ export default function CertConfigPanel() {
   const [viewContent, setViewContent] = useState<string | null>(null);
   const [viewError, setViewError] = useState<string | null>(null);
 
-  // ── Handlers: File Selection & Verification ──────────────────
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  // ── Helper: File Validation (Shared by Input & Drop) ─────────
+  const processFile = (file: File) => {
     setFileError(null);
     setCheckResult(null);
     setUploadStatus(null);
-    
-    const file = e.target.files?.[0];
-    if (!file) return;
 
     const currentConfig = FILE_TYPES[fileType];
     const hasValidExt = currentConfig.exts.some(ext => file.name.toLowerCase().endsWith(ext));
@@ -91,15 +90,54 @@ export default function CertConfigPanel() {
     if (!hasValidExt) {
       setFileError(`Invalid file extension. Expected strictly: ${currentConfig.exts.join(" or ")}`);
       setSelectedFile(null);
+      setAliasName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setSelectedFile(file);
+    // Auto-populate alias by stripping the file extension
+    const cleanAlias = file.name.replace(/\.[^/.]+$/, "");
+    setAliasName(cleanAlias);
   };
 
+  // ── Handlers: Drag and Drop ──────────────────────────────────
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFile(files[0]);
+    }
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  // ── Handlers: Verification & SFTP Upload ─────────────────────
   const handleCheckFile = async () => {
     if (!selectedFile) return;
+    if (!aliasName.trim()) {
+      setFileError("Please provide an alias name for this configuration.");
+      return;
+    }
+
     setIsChecking(true);
     setCheckResult(null);
     setUploadStatus(null);
@@ -112,6 +150,7 @@ export default function CertConfigPanel() {
           targetHost: selectedHost,
           targetDir: FILE_TYPES[fileType].dir,
           fileName: selectedFile.name,
+          alias: aliasName.trim(), // NEW: Passing alias to backend
         }),
       });
       const data = await res.json();
@@ -129,7 +168,6 @@ export default function CertConfigPanel() {
     }
   };
 
-  // ── Handlers: SFTP Upload ────────────────────────────────────
   const handleConfirmUpload = async () => {
     if (!selectedFile) return;
     setIsUploading(true);
@@ -139,6 +177,7 @@ export default function CertConfigPanel() {
     formData.append("file", selectedFile);
     formData.append("targetDir", FILE_TYPES[fileType].dir);
     formData.append("targetHost", selectedHost);
+    formData.append("alias", aliasName.trim()); // NEW: Passing alias to SFTP upload
 
     try {
       const res = await fetch(`${BACKEND_URL}/sftp-upload`, {
@@ -154,6 +193,7 @@ export default function CertConfigPanel() {
       setUploadStatus({ type: "success", msg: data.message });
       setShowConfirmModal(false);
       setSelectedFile(null);
+      setAliasName("");
       setCheckResult(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
@@ -252,6 +292,7 @@ export default function CertConfigPanel() {
                 onChange={(e) => {
                   setFileType(e.target.value as FileTypeKey);
                   setSelectedFile(null);
+                  setAliasName("");
                   setFileError(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
@@ -272,17 +313,32 @@ export default function CertConfigPanel() {
             </span>
           </div>
 
-          {/* File Upload Drop Zone */}
+          {/* File Upload Drop Zone (Enhanced with Drag & Drop) */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-800 hover:border-indigo-500/50 bg-slate-950/40 p-8 text-center cursor-pointer transition-all group"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition-all group ${
+              isDragging 
+                ? "border-indigo-500 bg-indigo-950/20 scale-[1.01]" 
+                : "border-slate-800 hover:border-indigo-500/50 bg-slate-950/40"
+            }`}
           >
-            <div className="rounded-full bg-slate-900 p-3 border border-slate-800 group-hover:scale-110 transition-transform">
+            <div className={`rounded-full p-3 border transition-transform ${
+              isDragging 
+                ? "bg-indigo-600/20 border-indigo-500 scale-110 animate-bounce" 
+                : "bg-slate-900 border-slate-800 group-hover:scale-110"
+            }`}>
               <ActiveIcon className="w-6 h-6 text-indigo-400" />
             </div>
             <div>
               <p className="text-sm text-slate-200 font-medium">
-                Click to select your <span className="text-indigo-400 underline">{FILE_TYPES[fileType].label}</span>
+                {isDragging ? (
+                  <span className="text-indigo-400 font-bold">Drop file here to attach...</span>
+                ) : (
+                  <>Drag & drop or <span className="text-indigo-400 underline">click to select</span> your {FILE_TYPES[fileType].label}</>
+                )}
               </p>
               <p className="text-xs text-slate-500 mt-1">Only {FILE_TYPES[fileType].exts.join(", ")} extensions allowed</p>
             </div>
@@ -303,24 +359,46 @@ export default function CertConfigPanel() {
             </div>
           )}
 
-          {/* Selected File Card */}
+          {/* Selected File & Alias Configuration Card */}
           {selectedFile && !fileError && (
-            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <ActiveIcon className="w-5 h-5 text-indigo-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-mono truncate font-semibold text-slate-200">{selectedFile.name}</p>
-                  <p className="text-xs text-slate-500">{(selectedFile.size / 1024).toFixed(2)} KB</p>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 space-y-4 animate-in fade-in duration-200">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
+                {/* File Info */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="rounded-lg bg-slate-800 p-2.5 border border-slate-700 shrink-0">
+                    <ActiveIcon className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-mono truncate font-semibold text-slate-200">{selectedFile.name}</p>
+                    <p className="text-xs text-slate-500">{(selectedFile.size / 1024).toFixed(2)} KB • Ready for config</p>
+                  </div>
                 </div>
+
+                {/* Alias Input Field */}
+                <div className="flex-1 max-w-md space-y-1">
+                  <label className="text-[11px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
+                    <Tag className="h-3 w-3 text-indigo-400" /> Certificate / Key Alias Name
+                  </label>
+                  <input
+                    type="text"
+                    value={aliasName}
+                    onChange={(e) => setAliasName(e.target.value)}
+                    placeholder="e.g. prod-gateway-cert"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-slate-100 font-mono placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={handleCheckFile}
+                  disabled={isChecking || !aliasName.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/20 transition-all shrink-0 h-10 self-end md:self-auto"
+                >
+                  {isChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Terminal className="h-3.5 w-3.5" />}
+                  {isChecking ? "Checking Server..." : "Check & Configure"}
+                </button>
               </div>
-              <button
-                onClick={handleCheckFile}
-                disabled={isChecking}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/20 transition-all shrink-0"
-              >
-                {isChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Terminal className="h-3.5 w-3.5" />}
-                {isChecking ? "Checking Server..." : "Check & Configure"}
-              </button>
             </div>
           )}
 
@@ -448,6 +526,7 @@ export default function CertConfigPanel() {
               <div className="flex justify-between"><span className="text-slate-500">Target Server:</span> <span className="text-indigo-400 font-bold">{selectedHost}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Destination Directory:</span> <span className="text-slate-200">{FILE_TYPES[fileType].dir}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">File Name:</span> <span className="text-slate-200 font-bold">{selectedFile.name}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Config Alias Name:</span> <span className="text-emerald-400 font-bold">{aliasName}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Action:</span> <span className={checkResult.exists ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>{checkResult.exists ? "OVERWRITE EXISTING" : "NEW UPLOAD"}</span></div>
             </div>
 

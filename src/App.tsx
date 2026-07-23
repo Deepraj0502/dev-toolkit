@@ -14,7 +14,8 @@ import {
   Zap,
   DatabaseZap,
   Server,
-  Key, // Added for Certificate Configuration Icon
+  Key,
+  Coffee, // Added for Certificate Configuration Icon
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
@@ -33,10 +34,11 @@ import {
 } from "./utils/common-functions";
 import { toast, ToastContainer } from "react-toastify";
 import { loginCred } from "./utils/loginCred";
+import JavaDecompilerTool from "./components/Javadecompilertool";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
@@ -181,6 +183,14 @@ function App() {
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("cert")}
               />
+
+              <SidebarItem
+                icon={<Coffee size={20} />}
+                label="Java Decompiler"
+                active={activeTool === "jdec"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("jdec")}
+              />
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -222,7 +232,9 @@ function App() {
                           ? "Cache Generator"
                           : activeTool === "sftp"
                             ? "SFTP Transfer"
-                            : "Certificate & Key Configuration"}
+                            : activeTool === "jdec"
+                            ? "Java Decompiler"
+                              : "Certificate & Key Configuration"}
               </h2>
 
               <div className="flex items-center gap-3">
@@ -299,6 +311,13 @@ function App() {
                   />
 
                   <ToolCard
+                    title="Java Decomiler"
+                    desc="Decompile your java jar file"
+                    icon={<Coffee className="text-indigo-500" />}
+                    onClick={() => setActiveTool("jdec")}
+                  />
+
+                  <ToolCard
                     title="Swagger Automator"
                     desc="Coming Soon"
                     icon={<Zap className="text-slate-400" />}
@@ -340,6 +359,12 @@ function App() {
               {activeTool === "cert" && (
                 <div className="animate-in zoom-in-95 duration-200">
                   <CertConfigPanel />
+                </div>
+              )}
+
+              {activeTool === "jdec" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <JavaDecompilerTool onBack={() => setActiveTool("home")} />
                 </div>
               )}
             </main>
