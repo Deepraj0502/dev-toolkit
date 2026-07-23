@@ -280,7 +280,7 @@ function App() {
                     onClick={() => setActiveTool("cache")}
                   />
 
-                  {(role === "MasterAdmin" || role === "Admin") && (
+                  {(role === "MasterAdmin" ) && (
                     <>
                       <ToolCard
                         title="SFTP"
