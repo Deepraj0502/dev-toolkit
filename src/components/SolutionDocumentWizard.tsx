@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, FileDown, ChevronLeft, ChevronRight, LayoutDashboard } from "lucide-react";
-import SolutionDocPreview from "./components/SolutionDocPreview";
+import SolutionDocPreview from "./SolutionDocPreview";
 import { generateSolutionDocx } from "./utils/generateSolutionDocx";
 import {
   DEFAULT_SOLUTION_DOC_FORM,
