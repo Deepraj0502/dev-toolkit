@@ -7,7 +7,7 @@ import {
   TableRow,
   TableCell,
   WidthType,
-  AlignmentType,
+  typeof AlignmentType,
   HeadingLevel,
   BorderStyle,
   ImageRun,
@@ -102,13 +102,6 @@ export async function generateSolutionDocx(form: SolutionDocFormState) {
   scopeOfChangeRows.push(
     createRow([{ text: `${scopeOfChangeRows.length}.` }, { text: "Encryption Document" }, { text: "" }, { text: "" }, { text: "" }, { text: "For Consuming Channel within SBI" }])
   );
-
-  const referenceParagraphs = form.references && form.references.length > 0
-    ? form.references.map((ref, index) => {
-        const fileText = ref.fileName ? ` - ${ref.fileName}` : "";
-        return new Paragraph({ text: `${index + 1}. ${ref.description || "Reference Document"}${fileText}` });
-      })
-    : [new Paragraph({ text: "None." })];
 
   // 2. DOCUMENT CONSTRUCTION
   const doc = new Document({
