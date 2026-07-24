@@ -38,7 +38,7 @@ const createCell = (text: string, bold = false, colSpan = 1, italics = false, al
   });
 };
 
-const createRow = (cells: { text: string; bold?: boolean; colSpan?: number; italics?: boolean; alignment?: typeof AlignmentType}[]) => {
+const createRow = (cells: { text: string; bold?: boolean; colSpan?: number; italics?: boolean; alignment?: AlignmentType}[]) => {
   return new TableRow({
     children: cells.map(c => createCell(c.text, c.bold, c.colSpan, c.italics, c.alignment)),
   });
