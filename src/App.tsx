@@ -16,10 +16,12 @@ import {
   Server,
   Key,
   Coffee, // Added for Certificate Configuration Icon
+  FileText
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
 import CacheGeneratorTool from "./components/CacheGeneratorTool";
+import SolutionDocumentWizard from "./components/SolutionDocumentWizard";
 import SftpUpload from "./components/SftpUpload";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
 import CurlGenerator from "./modules/curl-generator/CurlGenerator";
@@ -191,6 +193,14 @@ function App() {
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("jdec")}
               />
+
+              <SidebarItem
+                icon={<Coffee size={20} />}
+                label="Solution Document Generator"
+                active={activeTool === "soldoc"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("soldoc")}
+              />
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -234,7 +244,9 @@ function App() {
                             ? "SFTP Transfer"
                             : activeTool === "jdec"
                             ? "Java Decompiler"
-                              : "Certificate & Key Configuration"}
+                              : activeTool === "soldoc"
+                                ? "Solution Document Generator"
+                                  : "Certificate & Key Configuration"}
               </h2>
 
               <div className="flex items-center gap-3">
@@ -318,6 +330,13 @@ function App() {
                   />
 
                   <ToolCard
+                    title="Solution Document Generator"
+                    desc="Generate solution document"
+                    icon={<FileText className="text-indigo-500" />}
+                    onClick={() => setActiveTool("jdec")}
+                  />
+
+                  <ToolCard
                     title="Swagger Automator"
                     desc="Coming Soon"
                     icon={<Zap className="text-slate-400" />}
@@ -365,6 +384,12 @@ function App() {
               {activeTool === "jdec" && (
                 <div className="animate-in zoom-in-95 duration-200">
                   <JavaDecompilerTool onBack={() => setActiveTool("home")} />
+                </div>
+              )}
+
+               {activeTool === "soldoc" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <SolutionDocumentWizard onBack={() => setActiveTool("home")} />
                 </div>
               )}
             </main>
