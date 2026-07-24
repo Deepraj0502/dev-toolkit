@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Plus, Trash2, FileDown, ChevronLeft, ChevronRight, LayoutDashboard } from "lucide-react";
 import SolutionDocPreview from "./SolutionDocPreview";
-import { generateSolutionDocx } from "./utils/generateSolutionDocx";
+import { generateSolutionDocx } from "../utils/generateSolutionDocx";
 import {
   DEFAULT_SOLUTION_DOC_FORM,
   WIZARD_STEPS,
   type SolutionDocFormState,
   type ApiDocumentRow,
   type ReferenceRow,
-} from "./types/solutionDoc";
+} from "../types/solutionDoc";
 
 const inputClass =
   "w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white";
