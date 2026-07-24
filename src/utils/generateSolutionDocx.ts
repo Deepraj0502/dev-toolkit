@@ -7,14 +7,14 @@ import {
   TableRow,
   TableCell,
   WidthType,
-  typeof AlignmentType,
+  AlignmentType,
   HeadingLevel,
   BorderStyle,
   ImageRun,
   PageBreak,
   TabStopType,
   TabStopPosition,
-  LeaderType,
+  LeaderType
 } from "docx";
 import { saveAs } from "file-saver";
 import type { SolutionDocFormState } from "../types/solutionDoc";
