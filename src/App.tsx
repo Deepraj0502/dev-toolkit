@@ -40,7 +40,7 @@ import JavaDecompilerTool from "./components/Javadecompilertool";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
