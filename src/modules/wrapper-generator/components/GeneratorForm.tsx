@@ -1,5 +1,5 @@
-import {type Dispatch, type SetStateAction } from "react";
-import {  Rocket, Settings2 } from "lucide-react";
+import { type ChangeEvent, type Dispatch, type SetStateAction, useRef } from "react";
+import { CheckCircle2, FileArchive, Rocket, Settings2, UploadCloud } from "lucide-react";
 import FormField from "./FormField";
 import SectionCard from "./SectionCard";
 import type { WrapperRequest } from "../types/Generator";
@@ -9,11 +9,19 @@ interface Props {
   setRequest: Dispatch<SetStateAction<WrapperRequest>>;
   generate: () => void;
   loading: boolean;
+  customTemplate: File | null;
+  onTemplateChange: (file: File | null) => void;
 }
 
-export default function GeneratorForm({ request, setRequest, generate, loading }: Props) {
-//   const [templateFile, setTemplateFile] = useState<string | null>(null);
-//   const fileInputRef = useRef<HTMLInputElement>(null);
+export default function GeneratorForm({
+  request,
+  setRequest,
+  generate,
+  loading,
+  customTemplate,
+  onTemplateChange
+}: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function update(field: keyof WrapperRequest, value: string) {
     setRequest((prev) => ({
@@ -22,37 +30,73 @@ export default function GeneratorForm({ request, setRequest, generate, loading }
     }));
   }
 
-//   function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
-//     const file = event.target.files?.[0];
-//     setTemplateFile(file ? file.name : null);
-//   }
+  function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    onTemplateChange(file);
+  }
+
+  function handleResetTemplate() {
+    onTemplateChange(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      {/* <SectionCard title="Template" icon={FileArchive}>
-        <div className="flex flex-col gap-2">
-          <span className="text-sm text-slate-300">Master Template (ZIP)</span>
+      <SectionCard title="Template Configuration" icon={FileArchive}>
+        <div className="flex flex-col gap-2.5">
+          <span className="text-sm font-medium text-slate-300">Master Template (ZIP Archive)</span>
+          
           <button
             type="button"
+            disabled={loading}
             onClick={() => fileInputRef.current?.click()}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-[#0f1424] px-3.5 py-2.5 text-left text-sm text-slate-100 transition hover:border-slate-700"
+            className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-[#0f1424] px-3.5 py-3 text-left text-sm text-slate-100 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="flex items-center gap-2 truncate">
-              <UploadCloud className="h-4 w-4 shrink-0 text-slate-500" />
-              <span className={templateFile ? "truncate text-slate-100" : "truncate text-slate-600"}>
-                {templateFile ?? "Choose a template archive..."}
+            <span className="flex items-center gap-2.5 truncate">
+              <UploadCloud className="h-4 w-4 shrink-0 text-indigo-400" />
+              <span className={customTemplate ? "truncate font-medium text-slate-100" : "truncate text-slate-500"}>
+                {customTemplate ? customTemplate.name : "Upload custom ZIP archive..."}
               </span>
             </span>
-            {templateFile ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : null}
+            {customTemplate ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            ) : null}
           </button>
-          <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleFileSelect} />
-          {templateFile ? (
-            <p className="text-xs text-slate-500">
-              Using template: <span className="text-slate-400">{templateFile.replace(/\.zip$/i, "")}</span>
-            </p>
-          ) : null}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".zip"
+            className="hidden"
+            onChange={handleFileSelect}
+            disabled={loading}
+          />
+
+          <div className="flex items-center justify-between px-1 pt-0.5">
+            {customTemplate ? (
+              <p className="text-xs text-slate-400">
+                Active: <span className="font-semibold text-indigo-400">{customTemplate.name.replace(/\.zip$/i, "")}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                Default: <span className="font-mono text-slate-400">thirdPartyGenericRouting_expDS</span>
+              </p>
+            )}
+
+            {customTemplate && !loading && (
+              <button
+                type="button"
+                onClick={handleResetTemplate}
+                className="text-xs font-medium text-rose-400 underline transition hover:text-rose-300"
+              >
+                Reset to Default
+              </button>
+            )}
+          </div>
         </div>
-      </SectionCard> */}
+      </SectionCard>
 
       <SectionCard title="Wrapper Information" icon={Settings2}>
         <div className="grid gap-4">

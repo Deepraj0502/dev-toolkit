@@ -34,14 +34,22 @@ export default class Generator {
   async generate(
     request: WrapperRequest,
     onLog: (level: LogLevel, message: string) => void,
-    onProgress: (step: "template" | "extract" | "rename" | "swagger" | "ace" | "validation" | "zip" | "download") => void
+    onProgress: (step: "template" | "extract" | "rename" | "swagger" | "ace" | "validation" | "zip" | "download") => void,
+    customTemplate?: File | null // <-- Added Optional Parameter
   ): Promise<GenerationResult> {
-    onLog("info", "Loading template...");
-    const zip = await this.zipEngine.loadTemplate();
+    
+    if (customTemplate) {
+      onLog("info", `Loading custom template: ${customTemplate.name}...`);
+    } else {
+      onLog("info", "Loading default embedded template (thirdPartyGenericRouting_expDS)...");
+    }
+
+    // Pass the file down to the engine
+    const zip = await this.zipEngine.loadTemplate(customTemplate);
     onProgress("template");
 
     const nodes = await this.tree.build(zip);
-    onLog("success", `${nodes.length} files loaded from the template.`);
+    onLog("success", `${nodes.length} files loaded from template.`);
     onProgress("extract");
 
     onLog("info", "Renaming folders and files...");

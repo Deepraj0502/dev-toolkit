@@ -19,6 +19,9 @@ export default function WrapperGenerator() {
     version: "1.0.0",
     author: ""
   });
+  
+  // 1. Added State for Custom ZIP File Upload
+  const [customTemplate, setCustomTemplate] = useState<File | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const generator = useMemo(() => new Generator(), []);
 
@@ -51,7 +54,8 @@ export default function WrapperGenerator() {
     addLog("info", "Initialization started...");
     pushToast("info", "Wrapper generation started.");
     try {
-      await generator.generate(request, addLog, updateProgress);
+      // 2. Pass customTemplate into generator
+      await generator.generate(request, addLog, updateProgress, customTemplate);
       addLog("success", "Wrapper generated successfully! Ready to download.");
       pushToast("success", "Wrapper archive generated and downloaded.");
     } catch (error) {
@@ -76,7 +80,15 @@ export default function WrapperGenerator() {
 
         <ProgressTimeline progress={state.progress} />
         <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
-          <GeneratorForm request={request} setRequest={setRequest} generate={generate} loading={state.loading} />
+          {/* 3. Pass customTemplate handlers to your UI Form */}
+          <GeneratorForm 
+            request={request} 
+            setRequest={setRequest} 
+            generate={generate} 
+            loading={state.loading}
+            customTemplate={customTemplate}
+            onTemplateChange={setCustomTemplate}
+          />
           <LoggerConsole logs={state.logs} loading={state.loading} />
         </div>
       </div>

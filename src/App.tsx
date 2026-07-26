@@ -37,10 +37,12 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import { loginCred } from "./utils/loginCred";
 import JavaDecompilerTool from "./components/Javadecompilertool";
+import SwaggerAutomator from "./modules/swagger/SwaggerAutomator";
+import SwaggerGenerator from "./modules/swagger/SwaggerGenerator";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc" | "swaggervalid" | "swaggergen"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
@@ -195,11 +197,26 @@ function App() {
               />
 
               <SidebarItem
-                icon={<Coffee size={20} />}
-                label="Solution Document Generator"
+                icon={<FileText size={20} />}
+                label="SolDoc"
                 active={activeTool === "soldoc"}
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("soldoc")}
+              />
+              <SidebarItem
+                icon={<Zap size={20} />}
+                label="Swagger Validator"
+                active={activeTool === "swaggervalid"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("swaggervalid")}
+              />
+
+              <SidebarItem
+                icon={<Zap size={20} />}
+                label="Swagger Generator"
+                active={activeTool === "swaggergen"}
+                expanded={sidebarOpen}
+                onClick={() => setActiveTool("swaggergen")}
               />
             </nav>
 
@@ -245,7 +262,11 @@ function App() {
                             : activeTool === "jdec"
                             ? "Java Decompiler"
                               : activeTool === "soldoc"
-                                ? "Solution Document Generator"
+                                ? "SolDoc Generator"
+                                : activeTool === "swaggervalid"
+                                  ? "Swagger Validator"
+                                  : activeTool === "swaggergen"
+                                  ? "Swagger Generator"
                                   : "Certificate & Key Configuration"}
               </h2>
 
@@ -330,17 +351,24 @@ function App() {
                   />
 
                   <ToolCard
-                    title="Solution Document Generator"
+                    title="SolDoc Generator"
                     desc="Generate solution document"
                     icon={<FileText className="text-indigo-500" />}
-                    onClick={() => setActiveTool("jdec")}
+                    onClick={() => setActiveTool("soldoc")}
                   />
 
                   <ToolCard
-                    title="Swagger Automator"
-                    desc="Coming Soon"
+                    title="Swagger Validator"
+                    desc="Validate swaggers automatically"
                     icon={<Zap className="text-slate-400" />}
-                    disabled
+                    onClick={() => setActiveTool("swaggervalid")}
+                  />
+
+                  <ToolCard
+                    title="Swagger Generator"
+                    desc="Generate swaggers"
+                    icon={<Zap className="text-slate-400" />}
+                    onClick={() => setActiveTool("swaggergen")}
                   />
                 </div>
               )}
@@ -390,6 +418,17 @@ function App() {
                {activeTool === "soldoc" && (
                 <div className="animate-in zoom-in-95 duration-200">
                   <SolutionDocumentWizard onBack={() => setActiveTool("home")} />
+                </div>
+              )}
+              {activeTool === "swaggervalid" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <SwaggerAutomator />
+                </div>
+              )}
+
+              {activeTool === "swaggergen" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <SwaggerGenerator />
                 </div>
               )}
             </main>
