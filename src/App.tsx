@@ -16,7 +16,8 @@ import {
   Server,
   Key,
   Coffee, // Added for Certificate Configuration Icon
-  FileText
+  FileText,
+  Share2
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
@@ -39,10 +40,11 @@ import { loginCred } from "./utils/loginCred";
 import JavaDecompilerTool from "./components/Javadecompilertool";
 import SwaggerAutomator from "./modules/swagger/SwaggerAutomator";
 import SwaggerGenerator from "./modules/swagger/SwaggerGenerator";
+import MasterAdminFileManager from "./components/MasterAdminFileManager";
 
 function App() {
   const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc" | "swaggervalid" | "swaggergen"
+    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc" | "swaggervalid" | "swaggergen" | "dropit"
   >("home");
 
   const [accessToken, setaccessToken] = useState<string | null>(null);
@@ -218,6 +220,17 @@ function App() {
                 expanded={sidebarOpen}
                 onClick={() => setActiveTool("swaggergen")}
               />
+              {role === "MasterAdmin"  && (
+                <>
+                  <SidebarItem
+                    icon={<Share2 size={20} />}
+                    label="DROP IT"
+                    active={activeTool === "dropit"}
+                    expanded={sidebarOpen}
+                    onClick={() => setActiveTool("dropit")}
+                  />
+                </>
+              )}
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -267,6 +280,8 @@ function App() {
                                   ? "Swagger Validator"
                                   : activeTool === "swaggergen"
                                   ? "Swagger Generator"
+                                  : activeTool === "dropit"
+                                  ? "DROP IT"
                                   : "Certificate & Key Configuration"}
               </h2>
 
@@ -370,6 +385,16 @@ function App() {
                     icon={<Zap className="text-slate-400" />}
                     onClick={() => setActiveTool("swaggergen")}
                   />
+                   {(role === "MasterAdmin" ) && (
+                    <>
+                      <ToolCard
+                        title="DROP IT"
+                        desc="Transfer files to storage"
+                        icon={<Share2 className="text-indigo-500" />}
+                        onClick={() => setActiveTool("dropit")}
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -431,6 +456,13 @@ function App() {
                   <SwaggerGenerator />
                 </div>
               )}
+
+              {activeTool === "dropit" && (
+                <div className="animate-in zoom-in-95 duration-200">
+                  <MasterAdminFileManager userRole={"masteradmin"} />
+                </div>
+              )}
+              
             </main>
           </div>
         </>

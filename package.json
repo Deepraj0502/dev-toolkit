@@ -13,8 +13,10 @@
   },
   "homepage": "https://deepraj0502.github.io/dev-toolkit",
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "@types/node-forge": "^1.3.14",
     "asn1js": "^3.0.10",
+    "docx": "^9.1.0",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "lucide-react": "^1.23.0",
@@ -23,11 +25,11 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-toastify": "^11.1.0",
-    "sql-formatter": "^15.4.0",
-    "docx": "^9.1.0"
+    "sql-formatter": "^15.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.2",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -38,7 +40,6 @@
     "postcss": "^8.5.16",
     "tailwindcss": "^4.3.2",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1",
-    "@types/file-saver": "^2.0.7"
+    "vite": "^8.1.1"
   }
 }
