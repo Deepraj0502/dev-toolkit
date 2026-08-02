@@ -1,3 +1,5 @@
+import type { BankVariant, ThirdPartyVariant } from "../config/templateProfiles";
+
 export interface WrapperRequest {
   apiName: string;
   swaggerTitle: string;
@@ -8,16 +10,19 @@ export interface WrapperRequest {
   packageNamespace?: string;
 }
 
+export interface BankWrapperRequest {
+  apiName: string;
+  variant: BankVariant;
+  swaggerFile: File;
+}
+
+export type { ThirdPartyVariant, BankVariant };
+
 export interface LogEntry {
-
     id: number;
-
     level: "info" | "success" | "error" | "warning";
-
     message: string;
-
     timestamp: string;
-
 }
 
 export interface ProgressState {
@@ -32,11 +37,7 @@ export interface ProgressState {
 }
 
 export interface GeneratorState {
-
     loading: boolean;
-
     progress: ProgressState;
-
     logs: LogEntry[];
-
 }

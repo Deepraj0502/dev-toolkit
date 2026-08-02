@@ -1,7 +1,7 @@
 import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
 import { 
   ShieldCheck, FileText, Key, Server, Upload, AlertTriangle, 
-  CheckCircle2, Loader2, Eye, FileSearch, X, Terminal, Tag 
+  CheckCircle2, Loader2, Eye, FileSearch, X, Terminal, Tag, Search, Clock 
 } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 
@@ -48,16 +48,25 @@ const FILE_TYPES: Record<FileTypeKey, {
   },
 };
 
+type ViewResult = {
+  host: string;
+  status: "FOUND" | "NOT_FOUND" | "ERROR";
+  expiry?: string;
+  fingerprint?: string;
+  content?: string;
+  error?: string;
+};
+
 export default function CertConfigPanel() {
-  const [activeTab, setActiveTab] = useState<"configure" | "view">("configure");
+  const [activeTab, setActiveTab] = useState<"configure" | "view" | "inventory">("configure");
 
   // ── Configure State ──────────────────────────────────────────
   const [selectedHost, setSelectedHost] = useState(ALLOWED_SERVERS[3]); // default .25
   const [fileType, setFileType] = useState<FileTypeKey>("cert");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [aliasName, setAliasName] = useState(""); // NEW: Alias state
+  const [aliasName, setAliasName] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false); // NEW: Drag state
+  const [isDragging, setIsDragging] = useState(false);
   
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<{
@@ -72,11 +81,18 @@ export default function CertConfigPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── View State ───────────────────────────────────────────────
-  const [viewHost, setViewHost] = useState(ALLOWED_SERVERS[3]);
+  const [viewHost, setViewHost] = useState("ALL");
   const [viewFileName, setViewFileName] = useState("");
   const [isViewing, setIsViewing] = useState(false);
-  const [viewContent, setViewContent] = useState<string | null>(null);
+  const [viewResults, setViewResults] = useState<ViewResult[]>([]);
+  const [viewPath, setViewPath] = useState<string>("");
   const [viewError, setViewError] = useState<string | null>(null);
+
+  // ── Inventory State ──────────────────────────────────────────
+  const [scanHost, setScanHost] = useState("ALL");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<any[]>([]);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   // ── Helper: File Validation (Shared by Input & Drop) ─────────
   const processFile = (file: File) => {
@@ -96,7 +112,6 @@ export default function CertConfigPanel() {
     }
 
     setSelectedFile(file);
-    // Auto-populate alias by stripping the file extension
     const cleanAlias = file.name.replace(/\.[^/.]+$/, "");
     setAliasName(cleanAlias);
   };
@@ -150,7 +165,7 @@ export default function CertConfigPanel() {
           targetHost: selectedHost,
           targetDir: FILE_TYPES[fileType].dir,
           fileName: selectedFile.name,
-          alias: aliasName.trim(), // NEW: Passing alias to backend
+          alias: aliasName.trim(),
         }),
       });
       const data = await res.json();
@@ -177,7 +192,7 @@ export default function CertConfigPanel() {
     formData.append("file", selectedFile);
     formData.append("targetDir", FILE_TYPES[fileType].dir);
     formData.append("targetHost", selectedHost);
-    formData.append("alias", aliasName.trim()); // NEW: Passing alias to SFTP upload
+    formData.append("alias", aliasName.trim());
 
     try {
       const res = await fetch(`${BACKEND_URL}/sftp-upload`, {
@@ -210,19 +225,21 @@ export default function CertConfigPanel() {
   const handleViewCert = async () => {
     if (!viewFileName.trim()) return;
     setIsViewing(true);
-    setViewContent(null);
+    setViewResults([]);
+    setViewPath("");
     setViewError(null);
 
     try {
       const res = await fetch(`${BACKEND_URL}/view-cert`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetHost: viewHost, fileName: viewFileName.trim() }),
+        body: JSON.stringify({ targetHosts: viewHost, fileName: viewFileName.trim() }),
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "Failed to fetch file");
-      setViewContent(data.content);
+      setViewResults(data.results);
+      setViewPath(data.path);
     } catch (err) {
       setViewError(err instanceof Error ? err.message : "Failed to retrieve certificate");
     } finally {
@@ -230,33 +247,84 @@ export default function CertConfigPanel() {
     }
   };
 
+  // ── Handlers: Global Inventory Scan ──────────────────────────
+  const handleScanServers = async () => {
+    setIsScanning(true);
+    setScanResults([]);
+    setScanError(null);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/list-certs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetHosts: scanHost }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to scan servers");
+      setScanResults(data.results || []);
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : "Inventory scan failed.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const getCertStatus = (expiryString: string) => {
+    if (expiryString.includes("Unknown")) return { label: "Invalid", color: "text-slate-400 bg-slate-800" };
+    
+    const expiryDate = new Date(expiryString);
+    const now = new Date();
+    const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+
+    if (diffDays < 0) return { label: "Expired", color: "text-red-300 bg-red-950 border-red-800" };
+    if (diffDays <= 30) return { label: `Expiring (${diffDays}d)`, color: "text-amber-300 bg-amber-950 border-amber-800" };
+    return { label: "Valid", color: "text-emerald-300 bg-emerald-950 border-emerald-800" };
+  };
+
   const ActiveIcon = FILE_TYPES[fileType].icon;
 
+  const flatCerts = scanResults.flatMap(r => (r.certs || []).map((c: any) => ({ host: r.host, ...c })));
+  const failedHosts = scanResults.filter(r => r.error);
+
+  // Deriving comparison info for the View Specific tab
+  const foundCerts = viewResults.filter(r => r.status === "FOUND");
+  const uniqueFingerprints = new Set(foundCerts.map(r => r.fingerprint));
+  const hasMismatch = uniqueFingerprints.size > 1;
+
   return (
-    <div className="w-full max-w-4xl mx-auto rounded-3xl border border-slate-800 bg-[#0b0f1d] p-6 shadow-2xl text-slate-100 space-y-6">
+    <div className="w-full max-w-5xl mx-auto rounded-3xl border border-slate-800 bg-[#0b0f1d] p-6 shadow-2xl text-slate-100 space-y-6">
       
       {/* ── Header & Tabs ──────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
           <ShieldCheck className="h-6 w-6 text-indigo-400" />
           <h2 className="text-lg font-bold tracking-wide uppercase font-mono">Certificate & Key Configuration</h2>
         </div>
-        <div className="flex rounded-xl bg-slate-900 p-1 border border-slate-800 text-xs font-semibold">
+        <div className="flex flex-wrap rounded-xl bg-slate-900 p-1 border border-slate-800 text-xs font-semibold">
           <button
             onClick={() => setActiveTab("configure")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
               activeTab === "configure" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Upload className="h-3.5 w-3.5" /> Configure / Upload
+            <Upload className="h-3.5 w-3.5" /> Configure
           </button>
           <button
             onClick={() => setActiveTab("view")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
               activeTab === "view" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" /> View Public Certs
+            <Eye className="h-3.5 w-3.5" /> View Specific
+          </button>
+          <button
+            onClick={() => setActiveTab("inventory")}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
+              activeTab === "inventory" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Search className="h-3.5 w-3.5" /> Global Inventory
           </button>
         </div>
       </div>
@@ -266,7 +334,6 @@ export default function CertConfigPanel() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* Target Server Selector */}
             <div className="space-y-1.5">
               <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
                 <Server className="h-3.5 w-3.5 text-indigo-400" /> Target Server IP
@@ -282,7 +349,6 @@ export default function CertConfigPanel() {
               </select>
             </div>
 
-            {/* File Type Selector */}
             <div className="space-y-1.5">
               <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
                 <FileSearch className="h-3.5 w-3.5 text-indigo-400" /> Target File Type
@@ -305,7 +371,6 @@ export default function CertConfigPanel() {
             </div>
           </div>
 
-          {/* Destination Path Display */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 flex items-center justify-between text-xs font-mono">
             <span className="text-slate-400">Target Path on <strong className="text-indigo-400">{selectedHost}</strong>:</span>
             <span className="text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1 rounded-md">
@@ -313,7 +378,6 @@ export default function CertConfigPanel() {
             </span>
           </div>
 
-          {/* File Upload Drop Zone (Enhanced with Drag & Drop) */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDragOver={handleDragOver}
@@ -351,7 +415,6 @@ export default function CertConfigPanel() {
             />
           </div>
 
-          {/* Error Message */}
           {fileError && (
             <div className="rounded-xl border border-red-800/80 bg-red-950/50 p-3.5 text-xs text-red-300 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
@@ -359,12 +422,9 @@ export default function CertConfigPanel() {
             </div>
           )}
 
-          {/* Selected File & Alias Configuration Card */}
           {selectedFile && !fileError && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 space-y-4 animate-in fade-in duration-200">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
-                {/* File Info */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="rounded-lg bg-slate-800 p-2.5 border border-slate-700 shrink-0">
                     <ActiveIcon className="w-5 h-5 text-indigo-400" />
@@ -375,7 +435,6 @@ export default function CertConfigPanel() {
                   </div>
                 </div>
 
-                {/* Alias Input Field */}
                 <div className="flex-1 max-w-md space-y-1">
                   <label className="text-[11px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
                     <Tag className="h-3 w-3 text-indigo-400" /> Certificate / Key Alias Name
@@ -389,7 +448,6 @@ export default function CertConfigPanel() {
                   />
                 </div>
 
-                {/* Action Button */}
                 <button
                   onClick={handleCheckFile}
                   disabled={isChecking || !aliasName.trim()}
@@ -402,7 +460,6 @@ export default function CertConfigPanel() {
             </div>
           )}
 
-          {/* Upload Status Feedback */}
           {uploadStatus && (
             <div className={`rounded-xl border p-4 text-xs flex items-center gap-3 ${
               uploadStatus.type === "success" 
@@ -411,6 +468,76 @@ export default function CertConfigPanel() {
             }`}>
               {uploadStatus.type === "success" ? <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" /> : <AlertTriangle className="h-5 w-5 text-red-400 shrink-0" />}
               <span className="font-mono leading-relaxed">{uploadStatus.msg}</span>
+            </div>
+          )}
+
+          {showConfirmModal && checkResult && selectedFile && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+              <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-200">
+                    <Server className="h-4 w-4 text-indigo-400" />
+                    SFTP Upload Confirmation
+                  </div>
+                  <button onClick={() => setShowConfirmModal(false)} className="text-slate-500 hover:text-slate-300">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {checkResult.exists ? (
+                  <div className="rounded-2xl border border-amber-700/60 bg-amber-950/40 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      Warning: File Already Exists on Server!
+                    </div>
+                    <p className="text-xs text-amber-200/80 leading-relaxed font-mono">
+                      A file named <strong className="text-white">{selectedFile.name}</strong> is already present in{" "}
+                      <span className="underline">{checkResult.path}</span> on {selectedHost}.
+                    </p>
+                    {checkResult.content && (
+                      <div className="mt-2 space-y-1">
+                        <span className="text-[10px] uppercase text-amber-400/80 font-bold">Existing Remote Content Snapshot:</span>
+                        <pre className="max-h-40 overflow-y-auto rounded-xl bg-black/60 p-2.5 text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-all border border-amber-900/40">
+                          {checkResult.content}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 p-3.5 flex items-center gap-3 text-xs text-emerald-300">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                    <span>Directory verified. No existing file collision detected at destination path.</span>
+                  </div>
+                )}
+
+                <div className="rounded-xl bg-slate-900 p-3.5 space-y-2 text-xs font-mono border border-slate-800/80">
+                  <div className="flex justify-between"><span className="text-slate-500">Target Server:</span> <span className="text-indigo-400 font-bold">{selectedHost}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Destination Directory:</span> <span className="text-slate-200">{FILE_TYPES[fileType].dir}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">File Name:</span> <span className="text-slate-200 font-bold">{selectedFile.name}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Config Alias Name:</span> <span className="text-emerald-400 font-bold">{aliasName}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Action:</span> <span className={checkResult.exists ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>{checkResult.exists ? "OVERWRITE EXISTING" : "NEW UPLOAD"}</span></div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    disabled={isUploading}
+                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmUpload}
+                    disabled={isUploading}
+                    className={`inline-flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold text-white shadow-lg transition-all ${
+                      checkResult.exists ? "bg-amber-600 hover:bg-amber-500 shadow-amber-600/20" : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20"
+                    }`}
+                  >
+                    {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {isUploading ? "Transferring..." : checkResult.exists ? "Confirm Overwrite via SFTP" : "Confirm SFTP Upload"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -422,12 +549,13 @@ export default function CertConfigPanel() {
           <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="w-full sm:w-48 shrink-0 space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Server IP</label>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Server Target</label>
                 <select
                   value={viewHost}
                   onChange={(e) => setViewHost(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 font-mono"
                 >
+                  <option value="ALL">All Servers</option>
                   {ALLOWED_SERVERS.map((ip) => (
                     <option key={ip} value={ip}>{ip}</option>
                   ))}
@@ -450,8 +578,8 @@ export default function CertConfigPanel() {
                     disabled={isViewing || !viewFileName.trim()}
                     className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   >
-                    {isViewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                    View
+                    {isViewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                    {viewHost === "ALL" ? "Search All" : "View File"}
                   </button>
                 </div>
               </div>
@@ -464,96 +592,160 @@ export default function CertConfigPanel() {
             </div>
           )}
 
-          {viewContent && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
-                <span>Displaying: <strong className="text-indigo-400">/opt/IBM/EndPoint_Public/{viewFileName}</strong></span>
-                <span className="text-emerald-400">Connected to {viewHost}</span>
+          {viewResults.length > 0 && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-400 px-1">
+                <span>Target Path: <strong className="text-indigo-400">{viewPath}</strong></span>
               </div>
-              <pre className="whitespace-pre-wrap break-all rounded-2xl border border-slate-800 bg-black/50 p-4 text-xs font-mono text-emerald-400 max-h-[380px] overflow-y-auto leading-relaxed">
-                <CopyButton text={viewContent} className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer float-right"/>
-                <br/>
-                <p>{viewContent}</p>
-              </pre>
+
+              {hasMismatch && (
+                <div className="rounded-xl border border-amber-800 bg-amber-950/40 p-3 text-xs text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span className="font-bold">Mismatch Detected: Different versions of {viewFileName} exist across the cluster! Check fingerprints.</span>
+                </div>
+              )}
+
+              {/* Summary Comparison Table */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="px-4 py-3">Server</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Expiry Date (GMT)</th>
+                      <th className="px-4 py-3">SHA-256 Fingerprint</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50 font-mono">
+                    {viewResults.map((res) => (
+                      <tr key={res.host} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="px-4 py-3 text-indigo-400 font-bold">{res.host}</td>
+                        <td className="px-4 py-3">
+                          {res.status === "FOUND" ? <span className="text-emerald-400">Found</span> : 
+                           res.status === "NOT_FOUND" ? <span className="text-slate-500">Not Found</span> : 
+                           <span className="text-red-400">Error: {res.error}</span>}
+                        </td>
+                        <td className="px-4 py-3">{res.expiry || "-"}</td>
+                        <td className="px-4 py-3 text-[10px] break-all">{res.fingerprint || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Render Content Blocks for found files */}
+              {foundCerts.map((res) => (
+                <div key={res.host} className="space-y-2 mt-4">
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                    <span className="text-emerald-400">Raw content from <strong>{res.host}</strong></span>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-all rounded-2xl border border-slate-800 bg-black/50 p-4 text-xs font-mono text-emerald-400 max-h-[380px] overflow-y-auto leading-relaxed">
+                    <CopyButton text={res.content || ""} className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer float-right"/>
+                    <br/>
+                    <p>{res.content}</p>
+                  </pre>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ── MODAL: PRE-UPLOAD COLLISION & CONFIRMATION ─────────── */}
-      {showConfirmModal && checkResult && selectedFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-200">
-                <Server className="h-4 w-4 text-indigo-400" />
-                SFTP Upload Confirmation
+      {/* ── TAB 3: GLOBAL INVENTORY ────────────────────────────── */}
+      {activeTab === "inventory" && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="flex-1 space-y-1.5">
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
+                  <Server className="h-3 w-3 text-indigo-400" /> Server Target
+                </label>
+                <select
+                  value={scanHost}
+                  onChange={(e) => setScanHost(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 font-mono focus:border-indigo-500"
+                >
+                  <option value="ALL">All Servers (Scan Cluster)</option>
+                  {ALLOWED_SERVERS.map((ip) => (
+                    <option key={ip} value={ip}>{ip}</option>
+                  ))}
+                </select>
               </div>
-              <button onClick={() => setShowConfirmModal(false)} className="text-slate-500 hover:text-slate-300">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Collision Warning Banner */}
-            {checkResult.exists ? (
-              <div className="rounded-2xl border border-amber-700/60 bg-amber-950/40 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Warning: File Already Exists on Server!
-                </div>
-                <p className="text-xs text-amber-200/80 leading-relaxed font-mono">
-                  A file named <strong className="text-white">{selectedFile.name}</strong> is already present in{" "}
-                  <span className="underline">{checkResult.path}</span> on {selectedHost}.
-                </p>
-                {checkResult.content && (
-                  <div className="mt-2 space-y-1">
-                    <span className="text-[10px] uppercase text-amber-400/80 font-bold">Existing Remote Content Snapshot:</span>
-                    <pre className="max-h-40 overflow-y-auto rounded-xl bg-black/60 p-2.5 text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-all border border-amber-900/40">
-                      {checkResult.content}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 p-3.5 flex items-center gap-3 text-xs text-emerald-300">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-                <span>Directory verified. No existing file collision detected at destination path.</span>
-              </div>
-            )}
-
-            {/* Upload Summary Table */}
-            <div className="rounded-xl bg-slate-900 p-3.5 space-y-2 text-xs font-mono border border-slate-800/80">
-              <div className="flex justify-between"><span className="text-slate-500">Target Server:</span> <span className="text-indigo-400 font-bold">{selectedHost}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Destination Directory:</span> <span className="text-slate-200">{FILE_TYPES[fileType].dir}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">File Name:</span> <span className="text-slate-200 font-bold">{selectedFile.name}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Config Alias Name:</span> <span className="text-emerald-400 font-bold">{aliasName}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Action:</span> <span className={checkResult.exists ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>{checkResult.exists ? "OVERWRITE EXISTING" : "NEW UPLOAD"}</span></div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-2">
+              
               <button
-                onClick={() => setShowConfirmModal(false)}
-                disabled={isUploading}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-colors"
+                onClick={handleScanServers}
+                disabled={isScanning}
+                className="inline-flex h-[42px] items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-lg shadow-indigo-600/20 transition-all"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmUpload}
-                disabled={isUploading}
-                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold text-white shadow-lg transition-all ${
-                  checkResult.exists ? "bg-amber-600 hover:bg-amber-500 shadow-amber-600/20" : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20"
-                }`}
-              >
-                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {isUploading ? "Transferring..." : checkResult.exists ? "Confirm Overwrite via SFTP" : "Confirm SFTP Upload"}
+                {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {isScanning ? "Scanning..." : "Scan & Build Inventory"}
               </button>
             </div>
+            <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" /> Pulls real-time expiry dates and SHA-256 fingerprints for all .cer and .pem files in <code className="text-indigo-400">/opt/IBM/EndPoint_Public</code>
+            </p>
           </div>
+
+          {scanError && (
+            <div className="rounded-xl border border-red-800 bg-red-950/60 p-4 text-xs font-mono text-red-300 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" /> {scanError}
+            </div>
+          )}
+
+          {scanResults.length > 0 && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              {failedHosts.length > 0 && (
+                <div className="rounded-xl border border-amber-800 bg-amber-950/40 p-3 text-xs text-amber-300">
+                  <span className="font-bold flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5"/> Failed to connect to some hosts:</span>
+                  <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                    {failedHosts.map(fh => <li key={fh.host} className="font-mono">{fh.host}: {fh.error}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+                      <tr>
+                        <th className="px-4 py-3">Server IP</th>
+                        <th className="px-4 py-3">Certificate Name</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Expiry Date (GMT)</th>
+                        <th className="px-4 py-3">SHA-256 Fingerprint</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50 font-mono">
+                      {flatCerts.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-slate-500 italic">No certificates found on the scanned hosts.</td>
+                        </tr>
+                      ) : (
+                        flatCerts.map((cert, idx) => {
+                          const status = getCertStatus(cert.expiry);
+                          return (
+                            <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                              <td className="px-4 py-3 text-indigo-400 font-bold whitespace-nowrap">{cert.host}</td>
+                              <td className="px-4 py-3 text-slate-200">{cert.name}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] uppercase font-bold tracking-wider ${status.color}`}>
+                                  {status.label}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">{cert.expiry}</td>
+                              <td className="px-4 py-3 text-[10px] break-all max-w-[250px]">{cert.fingerprint}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
-
     </div>
   );
 }

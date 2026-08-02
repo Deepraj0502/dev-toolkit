@@ -1,9 +1,3 @@
-export const TEMPLATE_NAME =
-    "thirdPartyTestWrapper_expDS";
-
-export const TEMPLATE_PATH =
-    `${import.meta.env.BASE_URL}templates/thirdPartyTestWrapper_expDS.zip`;
-
 export const DEFAULT_PROGRESS = {
     template: false,
     extract: false,

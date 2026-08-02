@@ -13,6 +13,12 @@ export const loginCred: LoginCredType[] = [
         role: "MasterAdmin"
     },
     {
+        username: "admin",
+        password: "0522",
+        key: "87620185264896781827104958373378",
+        role: "Admin"
+    },
+    {
         username: "v1016903",
         password: "8975",
         key: "56210185264810935827248658372475",

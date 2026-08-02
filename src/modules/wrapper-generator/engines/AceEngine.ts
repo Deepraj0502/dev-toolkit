@@ -1,9 +1,10 @@
-import { TEMPLATE_CONFIG } from "../config/templateConfig";
+import { replaceTemplateTokens } from "../utils/helper";
+import type { TemplateProfile } from "../config/templateProfiles";
 import type { ProjectNode } from "../types/ProjectNode";
 
 export default class AceEngine {
-  updateAce(nodes: ProjectNode[], apiName: string): ProjectNode[] {
-    const projectName = `${apiName}${TEMPLATE_CONFIG.suffix}`;
+  updateAce(nodes: ProjectNode[], apiName: string, profile: TemplateProfile): ProjectNode[] {
+    const projectName = `${apiName}${profile.suffix}`;
     const serviceName = apiName;
 
     return nodes.map((node) => {
@@ -11,11 +12,7 @@ export default class AceEngine {
         return node;
       }
 
-      const updated = node.textContent
-        .replaceAll(TEMPLATE_CONFIG.templateProject, projectName)
-        .replaceAll(TEMPLATE_CONFIG.templateService, serviceName)
-        .replaceAll("thirdPartyTestWrapper_expDS", projectName)
-        .replaceAll("thirdPartyTestWrapper", serviceName);
+      const updated = replaceTemplateTokens(node.textContent, profile, projectName, serviceName);
 
       return {
         ...node,

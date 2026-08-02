@@ -24,6 +24,7 @@ import {
   type ApiDocumentRow,
   type ReferenceRow,
   type SchemaFieldRow,
+  type ArrayFieldRow,
 } from "../types/solutionDoc";
 
 const inputClass =
@@ -155,6 +156,114 @@ export default function SolutionDocumentWizard({
     }));
   };
 
+  const addArrayChildField = (
+    serviceId: string,
+    type: "request" | "response",
+    parentId: string,
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      bankServices: prev.bankServices.map((service) => {
+        if (service.id !== serviceId) return service;
+
+        const fieldKey =
+          type === "request" ? "requestFields" : "responseFields";
+
+        return {
+          ...service,
+          [fieldKey]: service[fieldKey].map((field) => {
+            if (field.id !== parentId) return field;
+
+            return {
+              ...field,
+              children: [
+                ...(field.children || []),
+                {
+                  id: newId(),
+                  name: "",
+                  description: "",
+                  length: "",
+                  mandatory: "Mandatory",
+                  dataType: "String/Numeric",
+                  fieldType: "Field",
+                  children: [],
+                },
+              ],
+            };
+          }),
+        };
+      }),
+    }));
+  };
+
+const updateArrayChildField = (
+  serviceId: string,
+  type: "request" | "response",
+  parentId: string,
+  childId: string,
+  patch: Partial<ArrayFieldRow>,
+) => {
+  setForm((prev) => ({
+    ...prev,
+    bankServices: prev.bankServices.map((service) => {
+      if (service.id !== serviceId) return service;
+
+      const fieldKey =
+        type === "request" ? "requestFields" : "responseFields";
+
+      return {
+        ...service,
+        [fieldKey]: service[fieldKey].map((field) => {
+          if (field.id !== parentId) return field;
+
+          return {
+            ...field,
+            children: (field.children || []).map((child) =>
+              child.id === childId
+                ? {
+                    ...child,
+                    ...patch,
+                  }
+                : child
+            ),
+          };
+        }),
+      };
+    }),
+  }));
+};
+
+  const removeArrayChildField = (
+  serviceId: string,
+  type: "request" | "response",
+  parentId: string,
+  childId: string
+) => {
+  setForm((prev) => ({
+    ...prev,
+    bankServices: prev.bankServices.map((service) => {
+      if (service.id !== serviceId) return service;
+
+      const fieldKey =
+        type === "request" ? "requestFields" : "responseFields";
+
+      return {
+        ...service,
+        [fieldKey]: service[fieldKey].map((field) => {
+          if (field.id !== parentId) return field;
+
+          return {
+            ...field,
+            children: (field.children || []).filter(
+              (child) => child.id !== childId
+            ),
+          };
+        }),
+      };
+    }),
+  }));
+};
+
   const addSchemaField = (serviceId: string, type: "request" | "response") => {
     setForm((prev) => ({
       ...prev,
@@ -173,6 +282,8 @@ export default function SolutionDocumentWizard({
               length: "",
               mandatory: "Mandatory",
               dataType: "String/Numeric",
+              fieldType: "Field",
+              children: [],
             },
           ],
         };
@@ -294,6 +405,145 @@ export default function SolutionDocumentWizard({
                   }
                 />
               </div>
+              <select
+                value={f.fieldType}
+                className={`${inputClass} !p-1.5 text-xs`}
+                onChange={(e) =>
+                  updateSchemaField(serviceId, type, f.id, {
+                    fieldType: e.target.value as "Field" | "Array",
+                  })
+                }
+              >
+                <option value="Field">Field</option>
+                <option value="Array">Array</option>
+              </select>
+
+              {f.fieldType === "Array" && (
+                <div className="mt-3 ml-5 border-l-2 border-indigo-300 pl-4 flex flex-col gap-3">
+                  <div className="text-xs font-bold text-indigo-600 uppercase">
+                    Array Child Fields
+                  </div>
+
+                  {(f.children || []).map((child) => (
+                    <div
+                      key={child.id}
+                      className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3"
+                    >
+                      {/* Delete Child */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeArrayChildField(serviceId, type, f.id, child.id)
+                        }
+                        className="absolute top-2 right-2 text-red-500"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          value={child.name}
+                          placeholder="Field Name"
+                          className={inputClass}
+                          onChange={(e) =>
+                            updateArrayChildField(
+                              serviceId,
+                              type,
+                              f.id,
+                              child.id,
+                              { name: e.target.value },
+                            )
+                          }
+                        />
+
+                        <input
+                          value={child.length}
+                          placeholder="Length"
+                          className={inputClass}
+                          onChange={(e) =>
+                            updateArrayChildField(
+                              serviceId,
+                              type,
+                              f.id,
+                              child.id,
+                              { length: e.target.value },
+                            )
+                          }
+                        />
+                      </div>
+
+                      <input
+                        value={child.description}
+                        placeholder="Description"
+                        className={`${inputClass} mt-2`}
+                        onChange={(e) =>
+                          updateArrayChildField(
+                            serviceId,
+                            type,
+                            f.id,
+                            child.id,
+                            { description: e.target.value },
+                          )
+                        }
+                      />
+
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <select
+                          value={child.mandatory}
+                          className={inputClass}
+                          onChange={(e) =>
+                            updateArrayChildField(
+                              serviceId,
+                              type,
+                              f.id,
+                              child.id,
+                              {
+                                mandatory: e.target.value as
+                                  | "Mandatory"
+                                  | "Non-Mandatory",
+                              },
+                            )
+                          }
+                        >
+                          <option value="Mandatory">Mandatory</option>
+                          <option value="Non-Mandatory">Non-Mandatory</option>
+                        </select>
+
+                        <select
+                          value={child.dataType}
+                          className={inputClass}
+                          onChange={(e) =>
+                            updateArrayChildField(
+                              serviceId,
+                              type,
+                              f.id,
+                              child.id,
+                              {
+                                dataType: e.target.value as
+                                  | "String/Numeric"
+                                  | "String/Alphanumeric",
+                              },
+                            )
+                          }
+                        >
+                          <option value="String/Numeric">String/Numeric</option>
+                          <option value="String/Alphanumeric">
+                            String/Alphanumeric
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => addArrayChildField(serviceId, type, f.id)}
+                    className="w-full py-2 border border-dashed border-indigo-300 rounded-lg text-indigo-600 text-sm font-semibold hover:bg-indigo-50"
+                  >
+                    + Add Child Field
+                  </button>
+                </div>
+              )}
               <input
                 value={f.description}
                 placeholder="Field Description"

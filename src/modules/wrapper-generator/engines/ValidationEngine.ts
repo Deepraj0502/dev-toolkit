@@ -1,4 +1,4 @@
-import { TEMPLATE_CONFIG } from "../config/templateConfig";
+import type { TemplateProfile } from "../config/templateProfiles";
 import type { ProjectNode } from "../types/ProjectNode";
 
 export interface ValidationResult {
@@ -7,13 +7,16 @@ export interface ValidationResult {
 }
 
 export default class ValidationEngine {
-  validate(nodes: ProjectNode[]): ValidationResult {
+  validate(nodes: ProjectNode[], profile: TemplateProfile): ValidationResult {
     const remainingFiles = nodes
       .filter((node) => !node.isDirectory)
       .map((node) => node.path)
       .filter((path) => {
         const normalized = path.toLowerCase();
-        return normalized.includes(TEMPLATE_CONFIG.templateService.toLowerCase()) || normalized.includes(TEMPLATE_CONFIG.templateProject.toLowerCase());
+        return (
+          normalized.includes(profile.templateService.toLowerCase()) ||
+          normalized.includes(profile.templateProject.toLowerCase())
+        );
       });
 
     return {

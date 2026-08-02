@@ -1,28 +1,31 @@
-import { type ChangeEvent, type Dispatch, type SetStateAction, useRef } from "react";
-import { CheckCircle2, FileArchive, Rocket, Settings2, UploadCloud } from "lucide-react";
+import { type Dispatch, type SetStateAction } from "react";
+import { FileArchive, Rocket, Settings2 } from "lucide-react";
 import FormField from "./FormField";
 import SectionCard from "./SectionCard";
-import type { WrapperRequest } from "../types/Generator";
+import type { ThirdPartyVariant, WrapperRequest } from "../types/Generator";
 
 interface Props {
   request: WrapperRequest;
   setRequest: Dispatch<SetStateAction<WrapperRequest>>;
+  variant: ThirdPartyVariant;
+  onVariantChange: (variant: ThirdPartyVariant) => void;
   generate: () => void;
   loading: boolean;
-  customTemplate: File | null;
-  onTemplateChange: (file: File | null) => void;
 }
+
+const VARIANT_OPTIONS: { value: ThirdPartyVariant; label: string; template: string }[] = [
+  { value: "standard", label: "Standard", template: "thirdPartyGenericRouting_expDS" },
+  { value: "ccsid", label: "CCSID", template: "thirdPartyGenericRouting_CCSID_expDS" }
+];
 
 export default function GeneratorForm({
   request,
   setRequest,
+  variant,
+  onVariantChange,
   generate,
-  loading,
-  customTemplate,
-  onTemplateChange
+  loading
 }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   function update(field: keyof WrapperRequest, value: string) {
     setRequest((prev) => ({
       ...prev,
@@ -30,71 +33,34 @@ export default function GeneratorForm({
     }));
   }
 
-  function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] || null;
-    onTemplateChange(file);
-  }
-
-  function handleResetTemplate() {
-    onTemplateChange(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6">
-      <SectionCard title="Template Configuration" icon={FileArchive}>
+      <SectionCard title="Template" icon={FileArchive}>
         <div className="flex flex-col gap-2.5">
-          <span className="text-sm font-medium text-slate-300">Master Template (ZIP Archive)</span>
-          
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => fileInputRef.current?.click()}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-[#0f1424] px-3.5 py-3 text-left text-sm text-slate-100 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="flex items-center gap-2.5 truncate">
-              <UploadCloud className="h-4 w-4 shrink-0 text-indigo-400" />
-              <span className={customTemplate ? "truncate font-medium text-slate-100" : "truncate text-slate-500"}>
-                {customTemplate ? customTemplate.name : "Upload custom ZIP archive..."}
-              </span>
-            </span>
-            {customTemplate ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-            ) : null}
-          </button>
+          <span className="text-sm font-medium text-slate-300">Third-Party Wrapper Template</span>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".zip"
-            className="hidden"
-            onChange={handleFileSelect}
-            disabled={loading}
-          />
-
-          <div className="flex items-center justify-between px-1 pt-0.5">
-            {customTemplate ? (
-              <p className="text-xs text-slate-400">
-                Active: <span className="font-semibold text-indigo-400">{customTemplate.name.replace(/\.zip$/i, "")}</span>
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500">
-                Default: <span className="font-mono text-slate-400">thirdPartyGenericRouting_expDS</span>
-              </p>
-            )}
-
-            {customTemplate && !loading && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {VARIANT_OPTIONS.map((option) => (
               <button
+                key={option.value}
                 type="button"
-                onClick={handleResetTemplate}
-                className="text-xs font-medium text-rose-400 underline transition hover:text-rose-300"
+                disabled={loading}
+                onClick={() => onVariantChange(option.value)}
+                className={`rounded-xl border px-3.5 py-3 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  variant === option.value
+                    ? "border-indigo-500 bg-indigo-500/10 text-slate-100"
+                    : "border-slate-800 bg-[#0f1424] text-slate-400 hover:border-slate-700"
+                }`}
               >
-                Reset to Default
+                <p className="font-medium">{option.label}</p>
+                <p className="mt-0.5 truncate font-mono text-xs text-slate-500">{option.template}</p>
               </button>
-            )}
+            ))}
           </div>
+
+          <p className="px-1 pt-0.5 text-xs text-slate-500">
+            Uses the embedded template — no zip upload needed.
+          </p>
         </div>
       </SectionCard>
 

@@ -15,9 +15,9 @@ import {
   DatabaseZap,
   Server,
   Key,
-  Coffee, // Added for Certificate Configuration Icon
+  Coffee,
   FileText,
-  Share2
+  Network
 } from "lucide-react";
 
 import YamlTool from "./components/YamlTool";
@@ -26,7 +26,7 @@ import SolutionDocumentWizard from "./components/SolutionDocumentWizard";
 import SftpUpload from "./components/SftpUpload";
 import WrapperGenerator from "./modules/wrapper-generator/WrapperGenerator";
 import CurlGenerator from "./modules/curl-generator/CurlGenerator";
-import CertConfigPanel from "./components/CertConfigPanel"; // Added Import
+import CertConfigPanel from "./components/CertConfigPanel";
 import { useTheme } from "./hooks/useTheme";
 import LoginPage from "./components/LoginPage";
 import {
@@ -40,41 +40,136 @@ import { loginCred } from "./utils/loginCred";
 import JavaDecompilerTool from "./components/Javadecompilertool";
 import SwaggerAutomator from "./modules/swagger/SwaggerAutomator";
 import SwaggerGenerator from "./modules/swagger/SwaggerGenerator";
-import MasterAdminFileManager from "./components/MasterAdminFileManager";
+import NetcatTesterPanel from "./components/NetcatTesterPanel";
+
+// ─── TOOL CONFIGURATION DEFINITION ──────────────────────────────────────
+// To add a new tool, simply append an object to this array.
+// Use ["*"] in the roles array to grant access to all users.
+// ────────────────────────────────────────────────────────────────────────
+
+const TOOLS_CONFIG = [
+  {
+    id: "yaml",
+    title: "YAML Generator",
+    desc: "Middleware query to YAML conversion",
+    headerTitle: "YAML Generator",
+    icon: FileCode,
+    roles: ["*"],
+    render: (onBack: () => void) => <YamlTool onBack={onBack} />,
+  },
+  {
+    id: "wrapper",
+    title: "Wrapper Generator",
+    desc: "Generate Third Party Wrapper automatically",
+    headerTitle: "Wrapper Generator",
+    icon: ShieldCheck,
+    roles: ["MasterAdmin", "Admin"],
+    render: () => <WrapperGenerator />,
+  },
+  {
+    id: "curl",
+    title: "CURL Generator",
+    desc: "Generate signed GEN5/GEN6 CURL requests",
+    headerTitle: "CURL Generator",
+    icon: Terminal,
+    roles: ["*"],
+    render: () => <CurlGenerator />,
+  },
+  {
+    id: "cache",
+    title: "Cache Generator",
+    desc: "Generate Third Party Cache automatically",
+    headerTitle: "Cache Generator",
+    icon: DatabaseZap,
+    roles: ["*"],
+    render: (onBack: () => void) => <CacheGeneratorTool onBack={onBack} />,
+  },
+  {
+    id: "sftp",
+    title: "SFTP",
+    desc: "Transfer files to server",
+    headerTitle: "SFTP Transfer",
+    icon: Server,
+    roles: ["MasterAdmin"],
+    render: () => <SftpUpload />,
+  },
+  {
+    id: "cert",
+    title: "Cert Configuration",
+    desc: "Configure public certs, properties & JKS keystores",
+    headerTitle: "Certificate & Key Configuration",
+    icon: Key,
+    roles: ["*"],
+    render: () => <CertConfigPanel />,
+  },
+  {
+    id: "jdec",
+    title: "Java Decompiler",
+    desc: "Decompile your java jar file",
+    headerTitle: "Java Decompiler",
+    icon: Coffee,
+    roles: ["*"],
+    render: (onBack: () => void) => <JavaDecompilerTool onBack={onBack} />,
+  },
+  {
+    id: "soldoc",
+    title: "SolDoc Generator",
+    desc: "Generate solution document",
+    headerTitle: "SolDoc Generator",
+    icon: FileText,
+    roles: ["*"],
+    render: (onBack: () => void) => <SolutionDocumentWizard onBack={onBack} />,
+  },
+  {
+    id: "swaggervalid",
+    title: "Swagger Validator",
+    desc: "Validate swaggers automatically",
+    headerTitle: "Swagger Validator",
+    icon: Zap, // Reusing Zap, styled dynamically in the card below
+    roles: ["*"],
+    render: () => <SwaggerAutomator />,
+  },
+  {
+    id: "swaggergen",
+    title: "Swagger Generator",
+    desc: "Generate swaggers",
+    headerTitle: "Swagger Generator",
+    icon: Zap, // Reusing Zap, styled dynamically in the card below
+    roles: ["*"],
+    render: () => <SwaggerGenerator />,
+  },
+  {
+    id: "netcat",
+    title: "Netcat Tester",
+    desc: "TCP Ping & Payload execution via SSH",
+    headerTitle: "Netcat (TCP) Server Tester",
+    icon: Network,
+    roles: ["*"], 
+    render: () => <NetcatTesterPanel />,
+  }
+];
 
 function App() {
-  const [activeTool, setActiveTool] = useState<
-    "home" | "yaml" | "wrapper" | "curl" | "cache" | "sftp" | "cert" | "jdec" | "soldoc" | "swaggervalid" | "swaggergen" | "dropit"
-  >("home");
-
+  const [activeTool, setActiveTool] = useState<string>("home");
   const [accessToken, setaccessToken] = useState<string | null>(null);
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
   const [role, setRole] = useState("");
-
   const { theme, toggleTheme } = useTheme();
-
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-
     const loadToken = async () => {
-      const key =
-        loginCred.find((u) => u.username === getUsername())?.key || "";
+      const key = loginCred.find((u) => u.username === getUsername())?.key || "";
       const token = await getAccessToken(key);
       if (Date.now() > Number(token) || !token) {
         setaccessToken(null);
         handleLogout();
       } else {
         setaccessToken(token);
-        setRole(
-          loginCred.find((u) => u.username === getUsername())?.role || "",
-        );
+        setRole(loginCred.find((u) => u.username === getUsername())?.role || "");
       }
     };
-
     loadToken();
   }, []);
 
@@ -82,7 +177,7 @@ function App() {
 
   const onLogin = async (username: string, password: string) => {
     const user = loginCred.find(
-      (u) => u.username === username && u.password === password,
+      (u) => u.username === username && u.password === password
     );
 
     if (user) {
@@ -100,7 +195,17 @@ function App() {
   const handleLogout = () => {
     sessionStorage.clear();
     setaccessToken(null);
+    setRole("");
+    setActiveTool("home");
   };
+
+  // Determine which tools the current user is authorized to see
+  const allowedTools = TOOLS_CONFIG.filter(
+    (tool) => tool.roles.includes("*") || tool.roles.includes(role)
+  );
+
+  // Find the active tool configuration to render dynamic headers/components
+  const activeToolConfig = allowedTools.find((tool) => tool.id === activeTool);
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -129,6 +234,7 @@ function App() {
             </div>
 
             <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto custom-scrollbar">
+              {/* Static Dashboard Link */}
               <SidebarItem
                 icon={<LayoutDashboard size={20} />}
                 label="Dashboard"
@@ -137,100 +243,20 @@ function App() {
                 onClick={() => setActiveTool("home")}
               />
 
-              <SidebarItem
-                icon={<FileCode size={20} />}
-                label="YAML Generator"
-                active={activeTool === "yaml"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("yaml")}
-              />
-
-              {(role === "MasterAdmin" || role === "Admin") && (
-                <SidebarItem
-                  icon={<ShieldCheck size={20} />}
-                  label="Wrapper Generator"
-                  active={activeTool === "wrapper"}
-                  expanded={sidebarOpen}
-                  onClick={() => setActiveTool("wrapper")}
-                />
-              )}
-
-              <SidebarItem
-                icon={<Terminal size={20} />}
-                label="CURL Generator"
-                active={activeTool === "curl"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("curl")}
-              />
-
-              <SidebarItem
-                icon={<DatabaseZap size={20} />}
-                label="Cache Generator"
-                active={activeTool === "cache"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("cache")}
-              />
-
-              {role === "MasterAdmin"  && (
-                <>
+              {/* Dynamic Tool Links */}
+              {allowedTools.map((tool) => {
+                const IconComponent = tool.icon;
+                return (
                   <SidebarItem
-                    icon={<Server size={20} />}
-                    label="SFTP"
-                    active={activeTool === "sftp"}
+                    key={tool.id}
+                    icon={<IconComponent size={20} />}
+                    label={tool.title}
+                    active={activeTool === tool.id}
                     expanded={sidebarOpen}
-                    onClick={() => setActiveTool("sftp")}
+                    onClick={() => setActiveTool(tool.id)}
                   />
-                </>
-              )}
-              <SidebarItem
-                icon={<Key size={20} />}
-                label="Cert Config"
-                active={activeTool === "cert"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("cert")}
-              />
-
-              <SidebarItem
-                icon={<Coffee size={20} />}
-                label="Java Decompiler"
-                active={activeTool === "jdec"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("jdec")}
-              />
-
-              <SidebarItem
-                icon={<FileText size={20} />}
-                label="SolDoc"
-                active={activeTool === "soldoc"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("soldoc")}
-              />
-              <SidebarItem
-                icon={<Zap size={20} />}
-                label="Swagger Validator"
-                active={activeTool === "swaggervalid"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("swaggervalid")}
-              />
-
-              <SidebarItem
-                icon={<Zap size={20} />}
-                label="Swagger Generator"
-                active={activeTool === "swaggergen"}
-                expanded={sidebarOpen}
-                onClick={() => setActiveTool("swaggergen")}
-              />
-              {role === "MasterAdmin"  && (
-                <>
-                  <SidebarItem
-                    icon={<Share2 size={20} />}
-                    label="DROP IT"
-                    active={activeTool === "dropit"}
-                    expanded={sidebarOpen}
-                    onClick={() => setActiveTool("dropit")}
-                  />
-                </>
-              )}
+                );
+              })}
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -262,27 +288,7 @@ function App() {
               <h2 className="font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-widest text-xs">
                 {activeTool === "home"
                   ? "Overview"
-                  : activeTool === "yaml"
-                    ? "YAML Generator"
-                    : activeTool === "wrapper"
-                      ? "IBM ACE Wrapper Generator"
-                      : activeTool === "curl"
-                        ? "CURL Generator"
-                        : activeTool === "cache"
-                          ? "Cache Generator"
-                          : activeTool === "sftp"
-                            ? "SFTP Transfer"
-                            : activeTool === "jdec"
-                            ? "Java Decompiler"
-                              : activeTool === "soldoc"
-                                ? "SolDoc Generator"
-                                : activeTool === "swaggervalid"
-                                  ? "Swagger Validator"
-                                  : activeTool === "swaggergen"
-                                  ? "Swagger Generator"
-                                  : activeTool === "dropit"
-                                  ? "DROP IT"
-                                  : "Certificate & Key Configuration"}
+                  : activeToolConfig?.headerTitle || "Tool"}
               </h2>
 
               <div className="flex items-center gap-3">
@@ -309,160 +315,32 @@ function App() {
             </header>
 
             <main className="p-8">
-              {activeTool === "home" && (
+              {activeTool === "home" ? (
                 <div className="grid md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4">
-                  <ToolCard
-                    title="YAML Generator"
-                    desc="Middleware query to YAML conversion"
-                    icon={<FileCode className="text-indigo-500" />}
-                    onClick={() => setActiveTool("yaml")}
-                  />
-                  {(role === "MasterAdmin" || role === "Admin") && (
-                    <ToolCard
-                      title="IBM ACE Wrapper Generator"
-                      desc="Generate IBM ACE Third Party Wrapper automatically"
-                      icon={<ShieldCheck className="text-indigo-500" />}
-                      onClick={() => setActiveTool("wrapper")}
-                    />
-                  )}
+                  {allowedTools.map((tool) => {
+                    const IconComponent = tool.icon;
+                    // Apply dynamic styling based on the specific tool to match your original UI
+                    const iconColorClass = tool.id.includes("swagger")
+                      ? "text-slate-400"
+                      : "text-indigo-500";
 
-                  <ToolCard
-                    title="CURL Generator"
-                    desc="Generate signed GEN5/GEN6 CURL requests"
-                    icon={<Terminal className="text-indigo-500" />}
-                    onClick={() => setActiveTool("curl")}
-                  />
-
-                  <ToolCard
-                    title="Cache Generator"
-                    desc="Generate Third Party Cache automatically"
-                    icon={<DatabaseZap className="text-indigo-500" />}
-                    onClick={() => setActiveTool("cache")}
-                  />
-
-                  {(role === "MasterAdmin" ) && (
-                    <>
+                    return (
                       <ToolCard
-                        title="SFTP"
-                        desc="Transfer files to server"
-                        icon={<Server className="text-indigo-500" />}
-                        onClick={() => setActiveTool("sftp")}
+                        key={tool.id}
+                        title={tool.title}
+                        desc={tool.desc}
+                        icon={<IconComponent className={iconColorClass} />}
+                        onClick={() => setActiveTool(tool.id)}
                       />
-                    </>
-                  )}
-
-                  <ToolCard
-                    title="Cert Configuration"
-                    desc="Configure public certs, properties & JKS keystores"
-                    icon={<Key className="text-indigo-500" />}
-                    onClick={() => setActiveTool("cert")}
-                  />
-
-                  <ToolCard
-                    title="Java Decomiler"
-                    desc="Decompile your java jar file"
-                    icon={<Coffee className="text-indigo-500" />}
-                    onClick={() => setActiveTool("jdec")}
-                  />
-
-                  <ToolCard
-                    title="SolDoc Generator"
-                    desc="Generate solution document"
-                    icon={<FileText className="text-indigo-500" />}
-                    onClick={() => setActiveTool("soldoc")}
-                  />
-
-                  <ToolCard
-                    title="Swagger Validator"
-                    desc="Validate swaggers automatically"
-                    icon={<Zap className="text-slate-400" />}
-                    onClick={() => setActiveTool("swaggervalid")}
-                  />
-
-                  <ToolCard
-                    title="Swagger Generator"
-                    desc="Generate swaggers"
-                    icon={<Zap className="text-slate-400" />}
-                    onClick={() => setActiveTool("swaggergen")}
-                  />
-                   {(role === "MasterAdmin" ) && (
-                    <>
-                      <ToolCard
-                        title="DROP IT"
-                        desc="Transfer files to storage"
-                        icon={<Share2 className="text-indigo-500" />}
-                        onClick={() => setActiveTool("dropit")}
-                      />
-                    </>
-                  )}
+                    );
+                  })}
                 </div>
-              )}
-
-              {activeTool === "yaml" && (
+              ) : (
                 <div className="animate-in zoom-in-95 duration-200">
-                  <YamlTool onBack={() => setActiveTool("home")} />
+                  {/* Safely invoke the render function for the active tool */}
+                  {activeToolConfig?.render(() => setActiveTool("home"))}
                 </div>
               )}
-
-              {activeTool === "wrapper" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <WrapperGenerator />
-                </div>
-              )}
-
-              {activeTool === "curl" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <CurlGenerator />
-                </div>
-              )}
-
-              {activeTool === "cache" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <CacheGeneratorTool onBack={() => setActiveTool("home")} />
-                </div>
-              )}
-
-              {activeTool === "sftp" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <SftpUpload />
-                </div>
-              )}
-
-              {activeTool === "cert" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <CertConfigPanel />
-                </div>
-              )}
-
-              {activeTool === "jdec" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <JavaDecompilerTool onBack={() => setActiveTool("home")} />
-                </div>
-              )}
-
-               {activeTool === "soldoc" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <SolutionDocumentWizard onBack={() => setActiveTool("home")} />
-                </div>
-              )}
-              {activeTool === "swaggervalid" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <SwaggerAutomator />
-                </div>
-              )}
-
-              {activeTool === "swaggergen" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <SwaggerGenerator />
-                </div>
-              )}
-
-              {activeTool === "dropit" && (
-                <div className="animate-in zoom-in-95 duration-200">
-                  <MasterAdminFileManager userRole={"masteradmin"} />
-                </div>
-              )}
-              
             </main>
           </div>
         </>

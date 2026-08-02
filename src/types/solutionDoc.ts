@@ -98,6 +98,21 @@ export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 export interface SchemaFieldRow {
   id: string;
+
+  name: string;
+  description: string;
+  length: string;
+  mandatory: "Mandatory" | "Non-Mandatory";
+  dataType: "String/Numeric" | "String/Alphanumeric";
+
+  fieldType: "Field" | "Array";
+
+  children?: ArrayFieldRow[];
+}
+
+export interface ArrayFieldRow {
+  id: string;
+
   name: string;
   description: string;
   length: string;
@@ -130,6 +145,8 @@ export const getDefaultBankRequestFields = (): SchemaFieldRow[] => [
     length: "2",
     mandatory: "Mandatory",
     dataType: "String/Alphanumeric",
+    fieldType: "Field",
+    children: [],
   },
   {
     id: `req-${Date.now()}-2`,
@@ -138,6 +155,8 @@ export const getDefaultBankRequestFields = (): SchemaFieldRow[] => [
     length: "5",
     mandatory: "Mandatory",
     dataType: "String/Numeric",
+    fieldType: "Field",
+    children: [],
   },
   {
     id: `req-${Date.now()}-3`,
@@ -146,6 +165,8 @@ export const getDefaultBankRequestFields = (): SchemaFieldRow[] => [
     length: "7",
     mandatory: "Mandatory",
     dataType: "String/Numeric",
+    fieldType: "Field",
+    children: [],
   },
   {
     id: `req-${Date.now()}-4`,
@@ -154,6 +175,8 @@ export const getDefaultBankRequestFields = (): SchemaFieldRow[] => [
     length: "7",
     mandatory: "Mandatory",
     dataType: "String/Numeric",
+    fieldType: "Field",
+    children: [],
   },
 ];
 
@@ -165,6 +188,8 @@ export const getDefaultBankResponseFields = (): SchemaFieldRow[] => [
     length: "01",
     mandatory: "Mandatory",
     dataType: "String/Numeric",
+    fieldType: "Field",
+    children: [],
   },
   {
     id: `res-${Date.now()}-2`,
@@ -173,6 +198,8 @@ export const getDefaultBankResponseFields = (): SchemaFieldRow[] => [
     length: "05",
     mandatory: "Mandatory",
     dataType: "String/Alphanumeric",
+    fieldType: "Field",
+    children: [],
   },
   {
     id: `res-${Date.now()}-3`,
@@ -181,5 +208,7 @@ export const getDefaultBankResponseFields = (): SchemaFieldRow[] => [
     length: "100",
     mandatory: "Mandatory",
     dataType: "String/Alphanumeric",
+    fieldType: "Field",
+    children: [],
   },
 ];
