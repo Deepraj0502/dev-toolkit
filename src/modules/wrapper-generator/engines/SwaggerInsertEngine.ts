@@ -1,5 +1,5 @@
 import type { ProjectNode } from "../types/ProjectNode";
-import type { TemplateProfile } from "../config/TemplateProfiles";
+import type { TemplateProfile } from "../config/templateProfiles";
 /**
  * Used by the Bank Wrapper flow only.
  *
