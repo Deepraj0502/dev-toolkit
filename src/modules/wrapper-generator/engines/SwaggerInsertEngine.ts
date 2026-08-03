@@ -10,9 +10,15 @@ import type { ProjectNode } from "../types/ProjectNode";
  * Run this AFTER renaming/content-replacement so the user's swagger content
  * is never touched by the generic token-replace passes.
  */
-export default class SwaggerInsertEngine {
-  insertSwagger(nodes: ProjectNode[], swaggerRawText: string): ProjectNode[] {
+SwaggerInsertEngine {
+  insertSwagger(
+    nodes: ProjectNode[],
+    swaggerRawText: string,
+    apiName: string,
+    profile: TemplateProfile
+  ): ProjectNode[] {
     let inserted = false;
+    const newFileName = `${apiName}${profile.suffix}.json`;
 
     const updated = nodes.map((node) => {
       if (inserted || node.isDirectory) {
@@ -24,8 +30,14 @@ export default class SwaggerInsertEngine {
       }
 
       inserted = true;
+
+      const lastSlash = node.path.lastIndexOf("/");
+      const newPath = lastSlash >= 0 ? `${node.path.slice(0, lastSlash + 1)}${newFileName}` : newFileName;
+
       return {
         ...node,
+        name: newFileName,
+        path: newPath,
         textContent: swaggerRawText
       };
     });
