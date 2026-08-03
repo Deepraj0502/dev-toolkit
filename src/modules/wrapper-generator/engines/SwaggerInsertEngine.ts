@@ -10,7 +10,8 @@ import type { ProjectNode } from "../types/ProjectNode";
  * Run this AFTER renaming/content-replacement so the user's swagger content
  * is never touched by the generic token-replace passes.
  */
-SwaggerInsertEngine {
+
+export default class SwaggerInsertEngine {
   insertSwagger(
     nodes: ProjectNode[],
     swaggerRawText: string,
