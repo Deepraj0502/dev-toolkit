@@ -17,7 +17,9 @@ export default function NetcatTesterPanel() {
   const [destIp, setDestIp] = useState("");
   const [destPort, setDestPort] = useState("");
   const [payload, setPayload] = useState("");
-  const [delayMs, setDelayMs] = useState(1500); // New state for injection delay
+  const [delayMs, setDelayMs] = useState(1500); 
+  const [lineEnding, setLineEnding] = useState("\r\n"); 
+  const [stripNewlines, setStripNewlines] = useState(true); // NEW: Auto-sanitizer state
   
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<{
@@ -37,6 +39,9 @@ export default function NetcatTesterPanel() {
     setErrorMsg(null);
     setResult(null);
 
+    // CRITICAL: Strip out human-readable line breaks so the bank server doesn't crash
+    const sanitizedPayload = stripNewlines ? payload.replace(/\r?\n|\r/g, "") : payload;
+
     try {
       const res = await fetch(`${BACKEND_URL}/run-nc`, {
         method: "POST",
@@ -45,8 +50,9 @@ export default function NetcatTesterPanel() {
           jumpHost,
           destIp: destIp.trim(),
           destPort: destPort.trim(),
-          payload,
-          delayMs, // Send delay to backend
+          payload: sanitizedPayload,
+          delayMs, 
+          lineEnding,
         }),
       });
 
@@ -119,8 +125,8 @@ export default function NetcatTesterPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5" title="Time to wait for server prompt before sending payload">
-              <Clock className="h-3.5 w-3.5 text-indigo-400" /> Wait Time
+            <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5" title="Fallback time if 'Connected' string is hidden">
+              <Clock className="h-3.5 w-3.5 text-indigo-400" /> Fallback Wait
             </label>
             <select
               value={delayMs}
@@ -137,9 +143,23 @@ export default function NetcatTesterPanel() {
 
         {/* Payload Input */}
         <div className="space-y-1.5">
-          <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
-            <Send className="h-3.5 w-3.5 text-indigo-400" /> Input Payload String
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
+              <Send className="h-3.5 w-3.5 text-indigo-400" /> Input Payload String
+            </label>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Terminator:</label>
+              <select
+                value={lineEnding}
+                onChange={(e) => setLineEnding(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500 font-mono"
+              >
+                <option value="\r\n">CRLF (\r\n) - Bank Standard</option>
+                <option value="\n">LF (\n) - Linux Standard</option>
+                <option value="">None (Raw)</option>
+              </select>
+            </div>
+          </div>
           <textarea
             value={payload}
             onChange={(e) => setPayload(e.target.value)}
@@ -147,6 +167,18 @@ export default function NetcatTesterPanel() {
             rows={4}
             className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-3 text-sm text-slate-100 font-mono placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 resize-y"
           />
+          <div className="flex items-center gap-2 pt-1">
+            <input 
+              type="checkbox" 
+              id="strip-newlines" 
+              checked={stripNewlines} 
+              onChange={(e) => setStripNewlines(e.target.checked)} 
+              className="rounded border-slate-700 bg-slate-900 text-indigo-600"
+            />
+            <label htmlFor="strip-newlines" className="text-xs text-slate-500 font-semibold cursor-pointer">
+              Strip internal newlines (Ensures ISO/Bank payloads are sent as one continuous string)
+            </label>
+          </div>
         </div>
 
         <button
