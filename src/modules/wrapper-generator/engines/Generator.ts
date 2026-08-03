@@ -141,7 +141,7 @@ export default class Generator {
 
     onLog("info", `Inserting uploaded swagger: ${request.swaggerFile.name}...`);
     const swaggerRawText = await request.swaggerFile.text();
-    const finalNodes = this.swaggerInsertEngine.insertSwagger(aceNodes, swaggerRawText);
+    const finalNodes = this.swaggerInsertEngine.insertSwagger(aceNodes, swaggerRawText, request.apiName, profile);
     onLog("success", "Uploaded swagger inserted as-is.");
 
     const validation = this.validationEngine.validate(finalNodes, profile);
