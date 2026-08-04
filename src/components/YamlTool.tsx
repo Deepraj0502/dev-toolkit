@@ -325,7 +325,7 @@ function validateStatement(
 
   const statementType = getStatementType(upper);
 
-  // 🆕 NEW RULE: Check for line breaks inside the SQL query
+  // Check for line breaks inside the SQL query
   if (stmt.text.includes('\n') || stmt.text.includes('\r')) {
     push('error', 'Line breaks are not allowed inside a SQL query.');
   }
@@ -378,7 +378,7 @@ function validateStatement(
         push('success', `INSERT validation passed (${match.totalTuples} row${match.totalTuples !== 1 ? 's' : ''}).`);
       }
       
-      // 🆕 NEW RULES: FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
+      // FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
       const colOpenIdx = stmt.text.indexOf('(');
       const colResult = extractBalancedParen(stmt.text, colOpenIdx);
       if (colResult) {
@@ -394,7 +394,7 @@ function validateStatement(
             tuples.forEach((tuple, tIdx) => {
               const vals = splitArgs(tuple);
 
-              // 🆕 Rule: No spaces allowed in FIELD_NAME or FIELD_VALUE parameter values
+              // Rule: No spaces allowed in FIELD_NAME or FIELD_VALUE parameter values
               [fieldNameIdx, fieldValueIdx].forEach(idx => {
                 if (idx !== -1 && vals[idx]) {
                   const valInside = vals[idx].replace(/^'|'$/g, '');
@@ -404,7 +404,7 @@ function validateStatement(
                 }
               });
 
-              // 🆕 Rule: If FIELD_NAME contains EIS_DMZ, FIELD_VALUE must have siservices.bank.sbi
+              // Rule: If FIELD_NAME contains EIS_DMZ, FIELD_VALUE must have siservices.bank.sbi
               if (fieldNameIdx !== -1 && fieldValueIdx !== -1 && vals[fieldNameIdx] && vals[fieldValueIdx]) {
                 const fnVal = vals[fieldNameIdx].replace(/^'|'$/g, '');
                 const fvVal = vals[fieldValueIdx].replace(/^'|'$/g, '');
@@ -428,7 +428,7 @@ function validateStatement(
       push('warning', 'UPDATE without WHERE clause.');
     }
 
-    // 🆕 NEW RULE: Check for spaces in UPDATE statements modifying FIELD_NAME or FIELD_VALUE
+    // Check for spaces in UPDATE statements modifying FIELD_NAME or FIELD_VALUE
     const updateFieldRegex = /(FIELD_NAME|FIELD_VALUE)\s*=\s*'([^']*)'/gi;
     let fieldMatch;
     while ((fieldMatch = updateFieldRegex.exec(stmt.text)) !== null) {
@@ -437,7 +437,7 @@ function validateStatement(
       }
     }
 
-    // 🆕 NEW RULE: Domain check for EIS_DMZ in UPDATE statements
+    // Domain check for EIS_DMZ in UPDATE statements
     if (upper.includes('EIS_DMZ') && !stmt.text.toLowerCase().includes('siservices.bank.sbi')) {
       push('error', 'Update containing EIS_DMZ must have "siservices.bank.sbi" as domain.');
     }
@@ -560,4 +560,200 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
     totalErrors: allMessages.filter(m => m.severity === 'error').length,
     totalWarnings: allMessages.filter(m => m.severity === 'warning').length,
   };
+}
+
+
+// ============================================================================
+// Main React Component
+// ============================================================================
+
+export default function YamlTool(): ReactElement {
+  const [formData, setFormData] = useState<FormData>({
+    apiName: '',
+    node: '',
+    server: '',
+    deploy: '',
+    environment: 'DEV',
+    sql: ''
+  });
+  const [summary, setSummary] = useState<ValidationSummary | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const sqlInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSqlChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newSql = e.target.value;
+    setFormData(prev => ({ ...prev, sql: newSql }));
+    
+    const domSchema = detectDominantSchema(newSql);
+    if (domSchema) {
+      const env = schemaToEnvironment(domSchema);
+      if (env) {
+        setFormData(prev => ({ ...prev, environment: env }));
+      }
+    }
+  }, []);
+
+  const handleValidate = useCallback(() => {
+    setIsProcessing(true);
+    setTimeout(() => {
+      const result = validateSql(formData.sql, formData.environment);
+      setSummary(result);
+      setIsProcessing(false);
+    }, 150); // Small timeout to show loading state if desired
+  }, [formData]);
+
+  const hasIssues = useMemo(() => {
+    if (!summary) return false;
+    return summary.totalErrors > 0 || summary.totalWarnings > 0;
+  }, [summary]);
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-6 text-slate-800">
+      
+      {/* Header utilizing icons */}
+      <div className="flex items-center justify-between pb-4 border-b">
+        <div className="flex items-center space-x-2">
+          <Database className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold">SQL Deployment Validator</h1>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Settings className="w-5 h-5 text-slate-500" />
+          <LayoutDashboard className="w-5 h-5 text-slate-500" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left Column: Form & SQL Input */}
+        <div className="space-y-4">
+          <div className="flex flex-col space-y-2">
+            <label className="flex items-center text-sm font-semibold text-slate-700">
+              <Rocket className="w-4 h-4 mr-2" /> Target Environment
+            </label>
+            <div className="relative">
+              <select
+                className="w-full p-2 border rounded appearance-none pr-8"
+                value={formData.environment}
+                onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as Environment }))}
+              >
+                {ENVIRONMENTS.map(env => (
+                  <option key={env} value={env}>{env}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center text-sm font-semibold text-slate-700">
+                <Terminal className="w-4 h-4 mr-2" /> SQL Query
+              </label>
+              <CopyButton text={formData.sql} />
+            </div>
+            <textarea
+              ref={sqlInputRef}
+              className="w-full p-3 border rounded font-mono text-sm h-64 focus:ring focus:ring-blue-200 outline-none"
+              placeholder="Paste your SQL here..."
+              value={formData.sql}
+              onChange={handleSqlChange}
+            />
+          </div>
+
+          <button
+            onClick={handleValidate}
+            disabled={isProcessing || !formData.sql.trim()}
+            className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white p-2 rounded font-medium transition-colors"
+          >
+            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ListChecks className="w-5 h-5" />}
+            <span>Validate SQL</span>
+          </button>
+        </div>
+
+        {/* Right Column: Results Summary */}
+        <div className="space-y-4 bg-slate-50 p-4 rounded border">
+          <h2 className="flex items-center text-lg font-bold">
+            <Eye className="w-5 h-5 mr-2" /> Validation Report
+          </h2>
+
+          {!summary ? (
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 space-y-2">
+              <Sparkles className="w-8 h-8" />
+              <p>Enter SQL and run validation to see the report.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="p-2 bg-white rounded border">
+                  <div className="font-bold text-lg">{summary.totalQueries}</div>
+                  <div className="text-slate-500">Queries</div>
+                </div>
+                <div className="p-2 bg-red-50 text-red-700 rounded border border-red-100">
+                  <div className="font-bold text-lg">{summary.totalErrors}</div>
+                  <div>Errors</div>
+                </div>
+                <div className="p-2 bg-yellow-50 text-yellow-700 rounded border border-yellow-100">
+                  <div className="font-bold text-lg">{summary.totalWarnings}</div>
+                  <div>Warnings</div>
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              {summary.totalErrors === 0 && summary.totalWarnings === 0 ? (
+                <div className="flex items-center p-3 bg-green-100 text-green-800 rounded">
+                  <ShieldCheck className="w-5 h-5 mr-2" />
+                  <span className="font-medium">All checks passed successfully.</span>
+                </div>
+              ) : hasIssues && summary.totalErrors === 0 ? (
+                <div className="flex items-center p-3 bg-yellow-100 text-yellow-800 rounded">
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  <span className="font-medium">Passed with warnings. Please review.</span>
+                </div>
+              ) : (
+                <div className="flex items-center p-3 bg-red-100 text-red-800 rounded">
+                  <ShieldAlert className="w-5 h-5 mr-2" />
+                  <span className="font-medium">Validation failed. Fix errors to proceed.</span>
+                </div>
+              )}
+
+              {/* Detailed Messages */}
+              {hasIssues && (
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                  {summary.allMessages
+                    .filter(m => m.severity !== 'success')
+                    .map((msg, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`p-3 text-sm rounded border flex items-start space-x-2 ${
+                        msg.severity === 'error' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-yellow-50 border-yellow-200 text-yellow-900'
+                      }`}
+                    >
+                      {msg.severity === 'error' ? (
+                        <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-yellow-600" />
+                      )}
+                      <div>
+                        <span className="font-bold mr-1">Query {msg.queryNumber} (Line {msg.line}):</span>
+                        {msg.message}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Success Messages toggle could go here, omitting for brevity but ensuring imports are used */}
+              {!hasIssues && summary.totalQueries > 0 && (
+                <div className="flex justify-center text-green-600 pt-4">
+                  <CheckCircle2 className="w-12 h-12" />
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
