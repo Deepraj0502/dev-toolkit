@@ -383,9 +383,9 @@ function validateStatement(
   const statementType = getStatementType(upper);
 
   // NEW RULE: Check for line breaks inside the SQL query
-  if (stmt.text.includes('\n') || stmt.text.includes('\r')) {
-    push('error', 'Line breaks are not allowed inside a SQL query.');
-  }
+  // if (stmt.text.includes('\n') || stmt.text.includes('\r')) {
+  //   push('error', 'Line breaks are not allowed inside a SQL query.');
+  // }
 
   // Rule 2: statement type must be one of the allowed set
   if (statementType === 'UNKNOWN') {
