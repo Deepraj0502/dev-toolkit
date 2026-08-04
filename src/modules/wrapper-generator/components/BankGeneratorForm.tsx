@@ -1,7 +1,7 @@
 import { Banknote, Rocket } from "lucide-react";
 import FormField from "./FormField";
 import SectionCard from "./SectionCard";
-import SwaggerDropzone from "./SwaggerDropzone";
+import SwaggerInputPanel from "./SwaggerInputPanel";
 import type { BankVariant } from "../types/Generator";
 
 interface Props {
@@ -9,8 +9,10 @@ interface Props {
   onApiNameChange: (value: string) => void;
   variant: BankVariant;
   onVariantChange: (variant: BankVariant) => void;
-  swaggerFile: File | null;
-  onSwaggerFileChange: (file: File | null) => void;
+  swaggerText: string;
+  onSwaggerTextChange: (text: string) => void;
+  swaggerFileName: string | null;
+  onSwaggerFileNameChange: (name: string | null) => void;
   generate: () => void;
   loading: boolean;
 }
@@ -26,12 +28,14 @@ export default function BankGeneratorForm({
   onApiNameChange,
   variant,
   onVariantChange,
-  swaggerFile,
-  onSwaggerFileChange,
+  swaggerText,
+  onSwaggerTextChange,
+  swaggerFileName,
+  onSwaggerFileNameChange,
   generate,
   loading
 }: Props) {
-  const canGenerate = apiName.trim().length > 0 && !!swaggerFile && !loading;
+  const canGenerate = apiName.trim().length > 0 && swaggerText.trim().length > 0 && !loading;
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,11 +74,18 @@ export default function BankGeneratorForm({
             onChange={(event) => onApiNameChange(event.target.value)}
           />
 
-          <SwaggerDropzone file={swaggerFile} onFileChange={onSwaggerFileChange} disabled={loading} />
+          <SwaggerInputPanel
+            value={swaggerText}
+            onValueChange={onSwaggerTextChange}
+            fileName={swaggerFileName}
+            onFileNameChange={onSwaggerFileNameChange}
+            disabled={loading}
+          />
 
           <p className="px-1 text-xs text-slate-500">
-            Bank wrappers don't auto-fill swagger fields from form inputs — your uploaded swagger
-            is inserted as-is, then everything is renamed to match the API name above.
+            Bank wrappers don't auto-fill swagger fields from form inputs — drop a file or paste
+            the swagger content directly above, and it's inserted as-is, then everything is
+            renamed to match the API name.
           </p>
 
           <button
