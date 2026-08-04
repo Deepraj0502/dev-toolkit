@@ -1,5 +1,6 @@
-import type { ProjectNode } from "../types/ProjectNode";
 import type { TemplateProfile } from "../config/templateProfiles";
+import type { ProjectNode } from "../types/ProjectNode";
+
 /**
  * Used by the Bank Wrapper flow only.
  *
@@ -9,8 +10,16 @@ import type { TemplateProfile } from "../config/templateProfiles";
  * the template's placeholder swagger JSON file, verbatim, byte for byte.
  * Run this AFTER renaming/content-replacement so the user's swagger content
  * is never touched by the generic token-replace passes.
+ *
+ * IMPORTANT: the swagger placeholder's filename in the template zip is not
+ * guaranteed to contain the template's project/service token (e.g. a bank
+ * template's placeholder json can be named completely unrelated to its own
+ * project folder, such as "collateralRevampEnquiry_expDS.json" inside a
+ * "TransferClosureDepositAmend_expDS" project). RenameEngine's token
+ * substitution therefore can't be relied on to rename it. So we explicitly
+ * rename the file (and its path entry) to match the given API name here,
+ * instead of assuming the generic rename pass already handled it.
  */
-
 export default class SwaggerInsertEngine {
   insertSwagger(
     nodes: ProjectNode[],
