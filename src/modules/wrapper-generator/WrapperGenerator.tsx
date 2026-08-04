@@ -31,7 +31,8 @@ export default function WrapperGenerator() {
   // Bank wrapper state
   const [bankApiName, setBankApiName] = useState("");
   const [bankVariant, setBankVariant] = useState<BankVariant>("normal");
-  const [bankSwaggerFile, setBankSwaggerFile] = useState<File | null>(null);
+  const [bankSwaggerText, setBankSwaggerText] = useState("");
+  const [bankSwaggerFileName, setBankSwaggerFileName] = useState<string | null>(null);
 
   useEffect(() => {
     if (toasts.length === 0) {
@@ -93,17 +94,23 @@ export default function WrapperGenerator() {
       pushToast("error", "API Name is required.");
       return;
     }
-    if (!bankSwaggerFile) {
-      addLog("error", "A swagger file is required.");
-      pushToast("error", "Drag and drop a swagger file first.");
+    if (!bankSwaggerText.trim()) {
+      addLog("error", "Swagger content is required.");
+      pushToast("error", "Drop a swagger file or paste its content first.");
       return;
     }
+
     resetRunState();
     addLog("info", "Initialization started...");
     pushToast("info", "Bank wrapper generation started.");
     try {
       await generator.generateBank(
-        { apiName: bankApiName, variant: bankVariant, swaggerFile: bankSwaggerFile },
+        {
+          apiName: bankApiName,
+          variant: bankVariant,
+          swaggerFileName: bankSwaggerFileName || "swagger.json",
+          swaggerText: bankSwaggerText
+        },
         addLog,
         updateProgress
       );
@@ -163,8 +170,10 @@ export default function WrapperGenerator() {
               onApiNameChange={setBankApiName}
               variant={bankVariant}
               onVariantChange={setBankVariant}
-              swaggerFile={bankSwaggerFile}
-              onSwaggerFileChange={setBankSwaggerFile}
+              swaggerText={bankSwaggerText}
+              onSwaggerTextChange={setBankSwaggerText}
+              swaggerFileName={bankSwaggerFileName}
+              onSwaggerFileNameChange={setBankSwaggerFileName}
               generate={generateBank}
               loading={state.loading}
             />
