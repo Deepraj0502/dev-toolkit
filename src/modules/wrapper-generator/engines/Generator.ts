@@ -139,9 +139,8 @@ export default class Generator {
     onProgress("ace");
     onLog("success", "IBM ACE artifacts updated (including validation file for this variant).");
 
-    onLog("info", `Inserting uploaded swagger: ${request.swaggerFile.name}...`);
-    const swaggerRawText = await request.swaggerFile.text();
-    const finalNodes = this.swaggerInsertEngine.insertSwagger(aceNodes, swaggerRawText, request.apiName, profile);
+    onLog("info", `Inserting uploaded swagger: ${request.swaggerFileName}...`);
+    const finalNodes = this.swaggerInsertEngine.insertSwagger(aceNodes, request.swaggerText, request.apiName, profile);
     onLog("success", "Uploaded swagger inserted as-is.");
 
     const validation = this.validationEngine.validate(finalNodes, profile);
