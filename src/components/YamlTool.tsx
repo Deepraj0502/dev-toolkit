@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Database,
   Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
-  XCircle, Loader2, ListChecks, ArrowLeft
+  XCircle, Loader2, ListChecks
 } from 'lucide-react';
 import { CopyButton } from './CopyButton';
 
@@ -57,10 +57,6 @@ interface ParsedStatement {
   trimmedText: string;
   startIndex: number;
   hasSemicolon: boolean;
-}
-
-export interface YamlToolProps {
-  onBack?: () => void;
 }
 
 // ============================================================================
@@ -439,43 +435,43 @@ function validateStatement(
       } else {
         push('success', `INSERT validation passed (${match.totalTuples} row${match.totalTuples !== 1 ? 's' : ''}).`);
       }
-      
-      // NEW RULES: FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
-      const colOpenIdx = stmt.text.indexOf('(');
-      const colResult = extractBalancedParen(stmt.text, colOpenIdx);
-      if (colResult) {
-        const columns = splitArgs(colResult.content).map(c => c.toUpperCase().replace(/['"]/g, '').trim());
-        const fieldNameIdx = columns.indexOf('FIELD_NAME');
-        const fieldValueIdx = columns.indexOf('FIELD_VALUE');
+    }
+    
+    // NEW RULES: FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
+    const colOpenIdx = stmt.text.indexOf('(');
+    const colResult = extractBalancedParen(stmt.text, colOpenIdx);
+    if (colResult) {
+      const columns = splitArgs(colResult.content).map(c => c.toUpperCase().replace(/['"]/g, '').trim());
+      const fieldNameIdx = columns.indexOf('FIELD_NAME');
+      const fieldValueIdx = columns.indexOf('FIELD_VALUE');
 
-        if (fieldNameIdx !== -1 || fieldValueIdx !== -1) {
-          const valuesIdx = upper.match(/\bVALUES\b/)?.index;
-          if (valuesIdx !== undefined) {
-            const tuples = extractValueTuples(stmt.text, valuesIdx + 'VALUES'.length);
-            
-            tuples.forEach((tuple, tIdx) => {
-              const vals = splitArgs(tuple);
+      if (fieldNameIdx !== -1 || fieldValueIdx !== -1) {
+        const valuesIdx = upper.match(/\bVALUES\b/)?.index;
+        if (valuesIdx !== undefined) {
+          const tuples = extractValueTuples(stmt.text, valuesIdx + 'VALUES'.length);
+          
+          tuples.forEach((tuple, tIdx) => {
+            const vals = splitArgs(tuple);
 
-              // Rule: No spaces allowed in FIELD_NAME or FIELD_VALUE parameter values
-              [fieldNameIdx, fieldValueIdx].forEach(idx => {
-                if (idx !== -1 && vals[idx]) {
-                  const valInside = vals[idx].replace(/^'|'$/g, '');
-                  if (valInside.includes(' ')) {
-                    push('error', `Space not allowed in parameter value for ${columns[idx]} (row ${tIdx + 1}).`);
-                  }
-                }
-              });
-
-              // Rule: If FIELD_NAME contains EIS_DMZ, FIELD_VALUE must have siservices.bank.sbi
-              if (fieldNameIdx !== -1 && fieldValueIdx !== -1 && vals[fieldNameIdx] && vals[fieldValueIdx]) {
-                const fnVal = vals[fieldNameIdx].replace(/^'|'$/g, '');
-                const fvVal = vals[fieldValueIdx].replace(/^'|'$/g, '');
-                if (fnVal.includes('EIS_DMZ') && !fvVal.toLowerCase().includes('siservices.bank.sbi')) {
-                  push('error', `FIELD_NAME containing EIS_DMZ must have "siservices.bank.sbi" as domain in FIELD_VALUE (row ${tIdx + 1}).`);
+            // Rule: No spaces allowed in FIELD_NAME or FIELD_VALUE parameter values
+            [fieldNameIdx, fieldValueIdx].forEach(idx => {
+              if (idx !== -1 && vals[idx]) {
+                const valInside = vals[idx].replace(/^'|'$/g, '');
+                if (valInside.includes(' ')) {
+                  push('error', `Space not allowed in parameter value for ${columns[idx]} (row ${tIdx + 1}).`);
                 }
               }
             });
-          }
+
+            // Rule: If FIELD_NAME contains EIS_DMZ, FIELD_VALUE must have siservices.bank.sbi
+            if (fieldNameIdx !== -1 && fieldValueIdx !== -1 && vals[fieldNameIdx] && vals[fieldValueIdx]) {
+              const fnVal = vals[fieldNameIdx].replace(/^'|'$/g, '');
+              const fvVal = vals[fieldValueIdx].replace(/^'|'$/g, '');
+              if (fnVal.includes('EIS_DMZ') && !fvVal.toLowerCase().includes('siservices.bank.sbi')) {
+                push('error', `FIELD_NAME containing EIS_DMZ must have "siservices.bank.sbi" as domain in FIELD_VALUE (row ${tIdx + 1}).`);
+              }
+            }
+          });
         }
       }
     }
@@ -489,7 +485,7 @@ function validateStatement(
     if (!upper.includes('WHERE')) {
       push('warning', 'UPDATE without WHERE clause.');
     }
-
+    
     // NEW RULE: Check for spaces in UPDATE statements modifying FIELD_NAME or FIELD_VALUE
     const updateFieldRegex = /(FIELD_NAME|FIELD_VALUE)\s*=\s*'([^']*)'/gi;
     let fieldMatch;
@@ -635,203 +631,420 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
   };
 }
 
-// ============================================================================
-// Main React Component
-// ============================================================================
-
-export default function YamlTool({ onBack }: YamlToolProps): ReactElement {
-  const [formData, setFormData] = useState<FormData>({
-    apiName: '',
-    node: '',
-    server: '',
-    deploy: '',
-    environment: 'DEV',
-    sql: ''
+/**
+ * Formats raw SQL using the `sql-formatter` package (PostgreSQL dialect,
+ * uppercase keywords) and then collapses each statement onto a single
+ * line — this matches how the query ends up embedded as a single YAML
+ * "Query:" string anyway, so a multi-line pretty-print just gets undone
+ * later. Line comments (using two dashes) are converted to block comments
+ * first, since collapsing newlines would otherwise swallow whatever
+ * follows a line comment into it.
+ */
+async function formatSql(sql: string): Promise<string> {
+  const { format } = await import('sql-formatter');
+  const pretty = format(sql, {
+    language: 'postgresql',
+    keywordCase: 'upper',
+    tabWidth: 4,
   });
-  const [summary, setSummary] = useState<ValidationSummary | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const sqlInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSqlChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newSql = e.target.value;
-    setFormData(prev => ({ ...prev, sql: newSql }));
-    
-    const domSchema = detectDominantSchema(newSql);
-    if (domSchema) {
-      const env = schemaToEnvironment(domSchema);
-      if (env) {
-        setFormData(prev => ({ ...prev, environment: env }));
-      }
+  const commentSafe = pretty.replace(/--([^\n]*)$/gm, (_m, comment) => `/*${comment} */`);
+
+  const rawParts = commentSafe.split(';');
+  const lines: string[] = [];
+  let pendingComment = '';
+
+  rawParts.forEach(part => {
+    const collapsed = part.replace(/\s+/g, ' ').trim();
+    if (!collapsed) return;
+
+    const comments = [...collapsed.matchAll(/\/\*.*?\*\//g)].map(m => m[0]).join(' ');
+    const codeOnly = collapsed.replace(/\/\*.*?\*\//g, ' ').replace(/\s+/g, ' ').trim();
+
+    if (!codeOnly) {
+      // A comment-only fragment (e.g. a trailing "-- note" that had nothing
+      // else before the next ';'). Carry it forward and attach it to the
+      // end of whichever real statement comes next, so no line ever starts
+      // with a comment — that would break keyword/statement-type detection.
+      pendingComment = pendingComment ? `${pendingComment} ${comments}` : comments;
+      return;
     }
+
+    const allComments = [pendingComment, comments].filter(Boolean).join(' ');
+    pendingComment = '';
+    lines.push(allComments ? `${codeOnly} ${allComments};` : `${codeOnly};`);
+  });
+
+  // A trailing comment with no statement after it at all — attach to the end
+  // of the last statement instead of dropping it.
+  if (pendingComment && lines.length > 0) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/;$/, ` ${pendingComment};`);
+  }
+
+  return lines.join('\n\n');
+}
+
+/** Builds the final YAML string from form + validated SQL (unchanged core logic). */
+function buildYaml(formData: FormData): string {
+  const { apiName, node, server, deploy, sql } = formData;
+  let yaml = `${apiName || 'API_Name'}:\n  IntegrationNode: ${node}\n  IntegrationServer: ${server}\n  Deploy: ${deploy}\n  Cache:\n`;
+
+  const statements = parseQueries(sql);
+
+  statements.forEach(({ text }) => {
+    const query = text.trim();
+    let fieldName = '';
+    let fieldValue = '';
+
+    if (query.toUpperCase().includes('CACHE_DETAILS')) {
+      const matches = [...query.matchAll(/'(.*?)'/g)];
+      if (matches[0]) fieldName = matches[0][1].replace(/ /g, '\u00B7');
+      if (matches[1]) fieldValue = matches[1][1].replace(/ /g, '\u00B7');
+    }
+
+    yaml += `    - Query: "${query.replace(/"/g, '\\"')};"\n      FIELD_NAME: "${fieldName}"\n      FIELD_VALUE: "${fieldValue}"\n`;
+  });
+
+  return yaml;
+}
+
+// ============================================================================
+// Small presentational helpers
+// ============================================================================
+
+const severityIcon: Record<Severity, ReactElement> = {
+  error: <XCircle size={14} className="text-red-500 flex-none" />,
+  warning: <AlertTriangle size={14} className="text-amber-400 flex-none" />,
+  success: <CheckCircle2 size={14} className="text-emerald-400 flex-none" />,
+};
+
+const severityTextClass: Record<Severity, string> = {
+  error: 'text-red-300',
+  warning: 'text-amber-200',
+  success: 'text-emerald-300',
+};
+
+const statusBadgeClass: Record<QueryStatus, string> = {
+  passed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  warning: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  error: 'bg-red-500/10 text-red-400 border-red-500/30',
+};
+
+// ============================================================================
+// Component
+// ============================================================================
+
+export default function YamlTool({ onBack }: { onBack: () => void }) {
+  const [formData, setFormData] = useState<FormData>({ apiName: '', node: '', server: '', deploy: 'false', environment: 'DEV', sql: '' });
+  const [output, setOutput] = useState('');
+  const [summary, setSummary] = useState<ValidationSummary | null>(null);
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [environmentTouched, setEnvironmentTouched] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const firstErrorRef = useRef<HTMLDivElement | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const handleValidate = useCallback(() => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      const result = validateSql(formData.sql, formData.environment);
-      setSummary(result);
-      setIsProcessing(false);
-    }, 150);
-  }, [formData]);
+  const updateSql = (sql: string) => {
+    setFormData(prev => {
+      if (environmentTouched) return { ...prev, sql };
+      const detectedSchema = detectDominantSchema(sql);
+      const detectedEnv = detectedSchema ? schemaToEnvironment(detectedSchema) : null;
+      return { ...prev, sql, environment: detectedEnv ?? prev.environment };
+    });
+  };
 
-  const hasIssues = useMemo(() => {
-    if (!summary) return false;
-    return summary.totalErrors > 0 || summary.totalWarnings > 0;
+  // -- Format SQL -----------------------------------------------------------
+  const handleFormat = useCallback(async () => {
+    if (!formData.sql.trim()) return;
+    setIsFormatting(true);
+    try {
+      const formatted = await formatSql(formData.sql);
+      updateSql(formatted);
+      showToast('SQL formatted successfully', 'success');
+    } catch {
+      showToast('Formatting failed — check your SQL syntax', 'error');
+    } finally {
+      setIsFormatting(false);
+    }
+  }, [formData.sql, showToast]);
+
+  // -- Validate SQL -----------------------------------------------------------
+  const handleValidate = useCallback(() => {
+    const result = validateSql(formData.sql, formData.environment);
+    setSummary(result);
+    setOutput('');
+    requestAnimationFrame(() => {
+      firstErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [formData.sql, formData.environment]);
+
+  // -- Generate YAML -----------------------------------------------------------
+  const handleGenerateYaml = useCallback(() => {
+    const result = validateSql(formData.sql, formData.environment);
+    setSummary(result);
+
+    if (result.totalErrors > 0) {
+      setOutput('');
+      showToast('Cannot generate YAML — resolve validation errors first', 'error');
+      requestAnimationFrame(() => {
+        firstErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    // Brief async tick keeps the loading state visible/meaningful for large scripts.
+    setTimeout(() => {
+      setOutput(buildYaml(formData));
+      setIsGenerating(false);
+    }, 250);
+  }, [formData, showToast]);
+
+  // -- Jump the textarea cursor/selection to a given line -----------------------------------------------------------
+  const jumpToLine = useCallback((line: number) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const lines = el.value.split('\n');
+    let start = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) start += lines[i].length + 1;
+    const end = start + (lines[line - 1]?.length ?? 0);
+    el.focus();
+    el.setSelectionRange(start, end);
+  }, []);
+
+  const hasBlockingErrors = (summary?.totalErrors ?? 0) > 0;
+  let firstErrorSeen = false;
+
+  const summaryBadge = useMemo(() => {
+    if (!summary) return null;
+    return {
+      errors: summary.totalErrors,
+      warnings: summary.totalWarnings,
+      passed: summary.queriesPassed,
+    };
   }, [summary]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 text-slate-800">
-      
-      {/* Header utilizing icons and Back Button */}
-      <div className="flex items-center justify-between pb-4 border-b">
-        <div className="flex items-center space-x-3">
-          {onBack && (
-            <button 
-              onClick={onBack} 
-              className="p-1.5 hover:bg-slate-100 rounded-md transition-colors text-slate-500 hover:text-slate-800"
-              title="Go Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <Database className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold">SQL Deployment Validator</h1>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Settings className="w-5 h-5 text-slate-500" />
-          <LayoutDashboard className="w-5 h-5 text-slate-500" />
-        </div>
+    <div className="min-h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col gap-4 sm:gap-6 font-sans">
+      <div className="flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <button onClick={onBack} className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:opacity-75 transition-all">
+          <LayoutDashboard size={20} /> Back to Dashboard
+        </button>
+
+        {toast && (
+          <div className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 w-fit ${toast.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+            {toast.type === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+            {toast.message}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Column: Form & SQL Input */}
-        <div className="space-y-4">
-          <div className="flex flex-col space-y-2">
-            <label className="flex items-center text-sm font-semibold text-slate-700">
-              <Rocket className="w-4 h-4 mr-2" /> Target Environment
-            </label>
-            <div className="relative">
-              <select
-                className="w-full p-2 border rounded appearance-none pr-8 focus:ring focus:ring-blue-200 outline-none"
-                value={formData.environment}
-                onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as Environment }))}
-              >
-                {ENVIRONMENTS.map(env => (
-                  <option key={env} value={env}>{env}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center text-sm font-semibold text-slate-700">
-                <Terminal className="w-4 h-4 mr-2" /> SQL Query
-              </label>
-              <CopyButton text={formData.sql} />
-            </div>
-            <textarea
-              ref={sqlInputRef}
-              className="w-full p-3 border rounded font-mono text-sm h-64 focus:ring focus:ring-blue-200 outline-none"
-              placeholder="Paste your SQL here..."
-              value={formData.sql}
-              onChange={handleSqlChange}
-            />
-          </div>
-
-          <button
-            onClick={handleValidate}
-            disabled={isProcessing || !formData.sql.trim()}
-            className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white p-2 rounded font-medium transition-colors"
-          >
-            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ListChecks className="w-5 h-5" />}
-            <span>Validate SQL</span>
-          </button>
-        </div>
-
-        {/* Right Column: Results Summary */}
-        <div className="space-y-4 bg-slate-50 p-4 rounded border">
-          <h2 className="flex items-center text-lg font-bold">
-            <Eye className="w-5 h-5 mr-2" /> Validation Report
-          </h2>
-
-          {!summary ? (
-            <div className="flex flex-col items-center justify-center h-48 text-slate-400 space-y-2">
-              <Sparkles className="w-8 h-8" />
-              <p>Enter SQL and run validation to see the report.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              
-              {/* Summary Stats */}
-              <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="p-2 bg-white rounded border">
-                  <div className="font-bold text-lg">{summary.totalQueries}</div>
-                  <div className="text-slate-500">Queries</div>
-                </div>
-                <div className="p-2 bg-red-50 text-red-700 rounded border border-red-100">
-                  <div className="font-bold text-lg">{summary.totalErrors}</div>
-                  <div>Errors</div>
-                </div>
-                <div className="p-2 bg-yellow-50 text-yellow-700 rounded border border-yellow-100">
-                  <div className="font-bold text-lg">{summary.totalWarnings}</div>
-                  <div>Warnings</div>
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col gap-4 sm:gap-6 min-h-0">
+          <div className="flex-none bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h3 className="font-bold mb-3 flex items-center gap-2 dark:text-white text-sm uppercase tracking-wider">
+              <Settings size={16} className="text-indigo-500" /> Environment
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <input placeholder="API Name" value={formData.apiName} className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white" onChange={e => setFormData({ ...formData, apiName: e.target.value })} />
+              <div className="relative">
+                <select
+                  value={formData.environment}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white appearance-none cursor-pointer"
+                  onChange={e => {
+                    setEnvironmentTouched(true);
+                    setFormData(prev => ({ ...prev, environment: e.target.value as Environment }));
+                  }}
+                  title="Target environment — determines the required table schema during validation. Auto-detected from your SQL until you pick one manually."
+                >
+                  {ENVIRONMENTS.map(env => (
+                    <option key={env} value={env}>
+                      {env} ({ENV_SCHEMA_MAP[env]}{env === 'DEV' ? ' or none' : ''})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown size={14} />
                 </div>
               </div>
-
-              {/* Status Banner */}
-              {summary.totalErrors === 0 && summary.totalWarnings === 0 ? (
-                <div className="flex items-center p-3 bg-green-100 text-green-800 rounded">
-                  <ShieldCheck className="w-5 h-5 mr-2" />
-                  <span className="font-medium">All checks passed successfully.</span>
+              <div className="relative">
+                <select
+                  value={formData.deploy}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white appearance-none cursor-pointer"
+                  onChange={e => setFormData({ ...formData, deploy: e.target.value })}
+                >
+                  <option value="true">Deploy: True</option>
+                  <option value="false">Deploy: False</option>
+                </select>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown size={14} />
                 </div>
-              ) : hasIssues && summary.totalErrors === 0 ? (
-                <div className="flex items-center p-3 bg-yellow-100 text-yellow-800 rounded">
-                  <AlertTriangle className="w-5 h-5 mr-2" />
-                  <span className="font-medium">Passed with warnings. Please review.</span>
-                </div>
-              ) : (
-                <div className="flex items-center p-3 bg-red-100 text-red-800 rounded">
-                  <ShieldAlert className="w-5 h-5 mr-2" />
-                  <span className="font-medium">Validation failed. Fix errors to proceed.</span>
-                </div>
-              )}
-
-              {/* Detailed Messages */}
-              {hasIssues && (
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                  {summary.allMessages
-                    .filter(m => m.severity !== 'success')
-                    .map((msg, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`p-3 text-sm rounded border flex items-start space-x-2 ${
-                        msg.severity === 'error' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-yellow-50 border-yellow-200 text-yellow-900'
-                      }`}
-                    >
-                      {msg.severity === 'error' ? (
-                        <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-yellow-600" />
-                      )}
-                      <div>
-                        <span className="font-bold mr-1">Query {msg.queryNumber} (Line {msg.line}):</span>
-                        {msg.message}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {!hasIssues && summary.totalQueries > 0 && (
-                <div className="flex justify-center text-green-600 pt-4">
-                  <CheckCircle2 className="w-12 h-12" />
-                </div>
-              )}
-
+              </div>
+              <input placeholder="Node" value={formData.node} className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white" onChange={e => setFormData({ ...formData, node: e.target.value })} />
+              <input placeholder="Server" value={formData.server} className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 ring-indigo-500 dark:text-white" onChange={e => setFormData({ ...formData, server: e.target.value })} />
             </div>
-          )}
+          </div>
+
+          <div className="flex-1 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-0">
+            <h3 className="font-bold mb-3 flex items-center gap-2 dark:text-white text-sm uppercase tracking-wider">
+              <Database size={16} className="text-indigo-500" /> SQL Script Editor
+            </h3>
+            <textarea
+              ref={textareaRef}
+              value={formData.sql}
+              className="flex-1 w-full min-h-[160px] p-4 font-mono text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 ring-indigo-500 dark:text-white resize-none"
+              placeholder="Paste SQL here..."
+              onChange={e => updateSql(e.target.value)}
+            />
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={handleFormat}
+                disabled={isFormatting || !formData.sql.trim()}
+                className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-3.5 rounded-2xl font-bold shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFormatting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                Format SQL
+              </button>
+              <button
+                onClick={handleValidate}
+                disabled={!formData.sql.trim()}
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white py-3.5 rounded-2xl font-bold shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ShieldCheck size={16} />
+                Validate SQL
+              </button>
+              <button
+                onClick={handleGenerateYaml}
+                disabled={isGenerating || !formData.sql.trim() || hasBlockingErrors}
+                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                title={hasBlockingErrors ? 'Resolve validation errors before generating' : undefined}
+              >
+                {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
+                Generate YAML
+              </button>
+            </div>
+
+            {summary && hasBlockingErrors && (
+              <div className="mt-3 flex items-start gap-2 text-xs text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+                <ShieldAlert size={14} className="flex-none mt-0.5" />
+                <span>
+                  {summary.totalErrors} validation error{summary.totalErrors !== 1 ? 's' : ''} must be fixed before YAML can be generated —
+                  see the report on the right. If it's a schema error, check the <strong>Environment</strong> dropdown ({formData.environment}) matches the schema in your SQL.
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800 flex flex-col shadow-2xl overflow-hidden h-full min-h-[420px] lg:min-h-0">
+          <div className="flex-none p-3 sm:p-4 bg-slate-900 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <Terminal size={16} className="text-slate-500 flex-none" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                {summary
+                  ? hasBlockingErrors ? 'Log: Build Failed' : 'Log: Validation Report'
+                  : 'Log: Configuration'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              {summaryBadge && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold font-mono uppercase tracking-wider">
+                  <span className="text-red-400">Errors: {summaryBadge.errors}</span>
+                  <span className="text-amber-400">Warnings: {summaryBadge.warnings}</span>
+                  <span className="text-emerald-400">Passed: {summaryBadge.passed}</span>
+                </div>
+              )}
+              {output && !hasBlockingErrors && (
+                <CopyButton text={output.replace(/\u00B7/g, ' ')} />
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-xs sm:text-sm leading-relaxed custom-scrollbar min-h-0 space-y-6">
+
+            {/* --- Validation report --- */}
+            {summary && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-widest font-bold">
+                  <ListChecks size={14} />
+                  {summary.totalQueries} {summary.totalQueries === 1 ? 'Query' : 'Queries'} Found
+                  <span className="text-slate-600">·</span>
+                  <span className="text-emerald-400">{summary.queriesPassed} Passed</span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-amber-400">{summary.queriesWithWarnings} Warning{summary.queriesWithWarnings !== 1 ? 's' : ''}</span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-red-400">{summary.queriesWithErrors} Error{summary.queriesWithErrors !== 1 ? 's' : ''}</span>
+                </div>
+
+                {summary.queryReports.length === 0 && (
+                  <p className="text-slate-500 italic text-xs">No functional statements found (only blank lines / COMMIT).</p>
+                )}
+
+                {summary.queryReports.map(qr => (
+                  <div key={qr.queryNumber} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-slate-300 font-bold text-xs uppercase tracking-wider">
+                        Query {qr.queryNumber} <span className="text-slate-600">· Ln {qr.startLine} · {qr.statementType}</span>
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${statusBadgeClass[qr.status]}`}>
+                        {qr.status}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {qr.messages.map((m, i) => {
+                        const isFirstBlockingError = m.severity === 'error' && !firstErrorSeen;
+                        if (isFirstBlockingError) firstErrorSeen = true;
+                        return (
+                          <div
+                            key={i}
+                            ref={isFirstBlockingError ? firstErrorRef : undefined}
+                            className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs"
+                          >
+                            {severityIcon[m.severity]}
+                            <span className={`${severityTextClass[m.severity]} break-words`}>{m.message}</span>
+                            <button
+                              onClick={() => jumpToLine(m.line)}
+                              className="text-slate-600 hover:text-indigo-400 whitespace-nowrap sm:ml-auto transition-colors"
+                            >
+                              Ln {m.line}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* --- YAML output --- */}
+            {output && !hasBlockingErrors && (
+              <div className="animate-in fade-in duration-300">
+                <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold mb-4 w-fit uppercase tracking-tighter">
+                  <Eye size={10} /> Dot-Highlighter Active
+                </div>
+                <pre className="text-emerald-400 whitespace-pre-wrap">{output}</pre>
+              </div>
+            )}
+
+            {/* --- Empty state --- */}
+            {!summary && !output && (
+              <div className="h-full flex flex-col items-center justify-center text-slate-700 dark:text-slate-600 italic">
+                <Database size={32} className="opacity-10 mb-2" />
+                <p className="text-xs text-center">Console Ready. Paste SQL, then Format → Validate → Generate.<br />Note: COMMIT; statements are automatically filtered.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
