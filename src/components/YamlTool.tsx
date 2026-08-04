@@ -70,6 +70,9 @@ export interface YamlToolProps {
 const ALLOWED_STATEMENTS: StatementType[] = ['INSERT', 'UPDATE', 'DELETE', 'SELECT', 'MERGE'];
 const RESTRICTED_TABLES = ['URL_MAPPER', 'SYS_URL_MAPPER'];
 
+// The schema every table reference must resolve to for a given target
+// environment. DEV is the only environment where an unqualified table name
+// (no "SCHEMA." prefix) is also acceptable.
 const ENV_SCHEMA_MAP: Record<Environment, string> = {
   DEV: 'EISDEV',
   SIT: 'EISSIT',
@@ -78,16 +81,27 @@ const ENV_SCHEMA_MAP: Record<Environment, string> = {
 };
 const ENVIRONMENTS: Environment[] = ['DEV', 'SIT', 'UAT', 'PROD'];
 
+// Matches "SCHEMA.TABLE", "SCHEMA.SCHEMA.TABLE" etc. immediately following
+// a table-referencing keyword, so we only look at real table refs and not
+// arbitrary dotted expressions elsewhere in the statement.
 const TABLE_REF_REGEX = /(?:INSERT\s+INTO|UPDATE|FROM|JOIN|DELETE\s+FROM|MERGE\s+INTO)\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)/gi;
 
 // ============================================================================
-// Pure helper functions 
+// Pure helper functions (kept outside the component to avoid re-creation
+// on every render, and to make each rule independently testable/reusable)
 // ============================================================================
 
+/** Returns the 1-indexed line number that a character offset falls on. */
 function getLineNumber(sql: string, charIndex: number): number {
   return sql.slice(0, charIndex).split('\n').length;
 }
 
+/**
+ * Splits a comma-separated argument list (e.g. the inside of a column list
+ * or a VALUES(...) clause) while respecting nested parentheses and quoted
+ * strings, so commas inside function calls or string literals don't
+ * fragment the split.
+ */
 function splitArgs(str: string): string[] {
   const result: string[] = [];
   let depth = 0;
@@ -111,6 +125,13 @@ function splitArgs(str: string): string[] {
   return result.filter(Boolean);
 }
 
+/**
+ * Splits raw SQL text into every non-blank fragment (statements AND
+ * standalone COMMIT markers), tracking each fragment's character offset
+ * and whether it was properly terminated with a semicolon. Keeping COMMIT
+ * fragments in this lower-level parser (unlike parseQueries below) lets us
+ * check statement-to-COMMIT adjacency for the PROD commit rule.
+ */
 interface ParsedFragment extends ParsedStatement {
   isCommit: boolean;
 }
@@ -122,7 +143,7 @@ function parseAllFragments(sql: string): ParsedFragment[] {
 
   rawParts.forEach((part, idx) => {
     const startIndex = offset;
-    offset += part.length + 1;
+    offset += part.length + 1; // account for the removed ';'
 
     const trimmed = part.trim();
     if (!trimmed) return;
@@ -140,6 +161,12 @@ function parseAllFragments(sql: string): ParsedFragment[] {
   return fragments;
 }
 
+/**
+ * Splits raw SQL text into individual functional statements only —
+ * standalone COMMIT statements are dropped, per business rules. Used by
+ * YAML generation and by most validation rules, which don't care about
+ * COMMIT placement.
+ */
 function parseQueries(sql: string): ParsedStatement[] {
   return parseAllFragments(sql).filter(f => !f.isCommit);
 }
@@ -157,6 +184,7 @@ function validateParentheses(text: string): { balanced: boolean; opens: number; 
 }
 
 function validateQuotes(text: string): boolean {
+  // Doubled '' is an escaped quote inside a string literal, not a delimiter.
   const withoutEscaped = text.replace(/''/g, '');
   const quoteCount = (withoutEscaped.match(/'/g) || []).length;
   return quoteCount % 2 === 0;
@@ -167,6 +195,7 @@ interface TableRef {
   parts: string[];
 }
 
+/** Pulls every "SCHEMA.TABLE"-style reference out of a statement. */
 function extractTableRefs(text: string): TableRef[] {
   const refs: TableRef[] = [];
   TABLE_REF_REGEX.lastIndex = 0;
@@ -178,6 +207,14 @@ function extractTableRefs(text: string): TableRef[] {
   return refs;
 }
 
+/**
+ * Enforces three related rules against every table reference in a statement:
+ *  - the same schema must be used consistently across the whole statement
+ *  - a schema can't be duplicated in the path (e.g. EISAPP.EISAPP.TABLE)
+ *  - the schema used must match the schema required by the selected target
+ *    environment (DEV/SIT/UAT/PROD), where DEV alone also permits omitting
+ *    the schema entirely
+ */
 function validateSchemaAndEnvironment(
   text: string,
   statementType: StatementType,
@@ -194,12 +231,14 @@ function validateSchemaAndEnvironment(
 
   refs.forEach(ref => {
     if (ref.parts.length > 2) {
+      // e.g. EISAPP.EISAPP.CACHE_DETAILS
       notes.push({ severity: 'error', message: `Duplicate/double schema in table reference "${ref.raw}".` });
       schemasUsed.add(ref.parts[0].toUpperCase());
       return;
     }
 
     if (ref.parts.length === 1) {
+      // No schema prefix at all.
       if (environment === 'DEV') {
         notes.push({ severity: 'success', message: `No schema on "${ref.raw}" (allowed for DEV).` });
       } else {
@@ -227,10 +266,15 @@ function validateSchemaAndEnvironment(
   return notes.map(n => ({ queryNumber: 0, line: 0, severity: n.severity, message: n.message }));
 }
 
+/** Renders a string with spaces swapped for a visible glyph, for display in messages. */
 function visualizeSpaces(value: string): string {
   return value.replace(/ /g, '\u2423');
 }
 
+/**
+ * Rule: flag string literal values that carry leading/trailing or repeated
+ * ("double") spaces — a common source of silent data mismatches.
+ */
 function findSpacingIssues(text: string): { value: string; issues: string[] }[] {
   const findings: { value: string; issues: string[] }[] = [];
   const literalMatches = [...text.matchAll(/'([^']*)'/g)];
@@ -247,6 +291,12 @@ function findSpacingIssues(text: string): { value: string; issues: string[] }[] 
   return findings;
 }
 
+/**
+ * Finds the ')' that balances the '(' at `openIndex`, tracking nesting
+ * depth and quoted strings so a value like TRUNC(SYSDATE) or a string
+ * containing ')' doesn't fool the match. Returns the inner content and the
+ * index of the closing paren, or null if unbalanced.
+ */
 function extractBalancedParen(text: string, openIndex: number): { content: string; endIndex: number } | null {
   let depth = 0;
   let inQuote = false;
@@ -264,6 +314,7 @@ function extractBalancedParen(text: string, openIndex: number): { content: strin
   return null;
 }
 
+/** Extracts every `(...)` value tuple after VALUES, supporting multi-row INSERTs. */
 function extractValueTuples(text: string, scanFromIndex: number): string[] {
   const tuples: string[] = [];
   let i = scanFromIndex;
@@ -285,6 +336,12 @@ interface InsertMatchResult {
   valid: boolean;
 }
 
+/**
+ * Compares the INSERT column list against every VALUES tuple's value count.
+ * Uses depth-aware paren matching (not regex) so values containing function
+ * calls like TRUNC(SYSDATE), TO_DATE(...), or literals like 'null'/NULL are
+ * handled correctly instead of truncating at the first nested ')'.
+ */
 function validateInsertColumnsMatchValues(text: string): InsertMatchResult | null {
   const upper = text.toUpperCase();
   const valuesMatch = upper.match(/\bVALUES\b/);
@@ -292,7 +349,7 @@ function validateInsertColumnsMatchValues(text: string): InsertMatchResult | nul
   const valuesIdx = valuesMatch.index;
 
   const colOpenIdx = text.indexOf('(');
-  if (colOpenIdx === -1 || colOpenIdx > valuesIdx) return null; 
+  if (colOpenIdx === -1 || colOpenIdx > valuesIdx) return null; // no explicit column list to compare against
 
   const colResult = extractBalancedParen(text, colOpenIdx);
   if (!colResult) return null;
@@ -329,7 +386,7 @@ function validateStatement(
 
   const statementType = getStatementType(upper);
 
-  // Check for line breaks inside the SQL query
+  // NEW RULE: Check for line breaks inside the SQL query
   if (stmt.text.includes('\n') || stmt.text.includes('\r')) {
     push('error', 'Line breaks are not allowed inside a SQL query.');
   }
@@ -337,10 +394,10 @@ function validateStatement(
   // Rule 2: statement type must be one of the allowed set
   if (statementType === 'UNKNOWN') {
     push('error', 'Unknown or unsupported statement type.');
-    return messages; 
+    return messages; // further rules assume a recognized statement shape
   }
 
-  // Rule 3: semicolon termination
+  // Rule 3: semicolon termination (COMMIT already filtered out in parseQueries)
   if (!stmt.hasSemicolon) {
     push('error', 'Missing semicolon.');
   }
@@ -360,17 +417,18 @@ function validateStatement(
     push('success', 'Quotes balanced.');
   }
 
-  // Rule 1: schema must be consistent across the statement
+  // Rule 1: schema must be consistent across the statement, non-duplicated,
+  // and must match the schema required by the selected target environment.
   validateSchemaAndEnvironment(stmt.text, statementType, environment).forEach(n =>
     push(n.severity, n.message)
   );
 
-  // Rule: flag stray leading/trailing/double spaces
+  // Rule: flag stray leading/trailing/double spaces inside string literal values.
   findSpacingIssues(stmt.text).forEach(({ value, issues }) => {
     push('warning', `Spacing issue (${issues.join(', ')}) in value: "${visualizeSpaces(value)}".`);
   });
 
-  // Rule 6: INSERT validation
+  // Rule 6: INSERT column/value count match (every VALUES tuple, depth-aware)
   if (statementType === 'INSERT') {
     const match = validateInsertColumnsMatchValues(stmt.text);
     if (match) {
@@ -382,7 +440,7 @@ function validateStatement(
         push('success', `INSERT validation passed (${match.totalTuples} row${match.totalTuples !== 1 ? 's' : ''}).`);
       }
       
-      // FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
+      // NEW RULES: FIELD_NAME / FIELD_VALUE space validation & EIS_DMZ domain check
       const colOpenIdx = stmt.text.indexOf('(');
       const colResult = extractBalancedParen(stmt.text, colOpenIdx);
       if (colResult) {
@@ -423,7 +481,7 @@ function validateStatement(
     }
   }
 
-  // Rule 7 & 8: UPDATE checks
+  // Rule 7 & 8: UPDATE must have SET, warn if missing WHERE
   if (statementType === 'UPDATE') {
     if (!upper.includes('SET')) {
       push('error', 'UPDATE statement missing SET clause.');
@@ -432,7 +490,7 @@ function validateStatement(
       push('warning', 'UPDATE without WHERE clause.');
     }
 
-    // Check for spaces in UPDATE statements modifying FIELD_NAME or FIELD_VALUE
+    // NEW RULE: Check for spaces in UPDATE statements modifying FIELD_NAME or FIELD_VALUE
     const updateFieldRegex = /(FIELD_NAME|FIELD_VALUE)\s*=\s*'([^']*)'/gi;
     let fieldMatch;
     while ((fieldMatch = updateFieldRegex.exec(stmt.text)) !== null) {
@@ -441,7 +499,7 @@ function validateStatement(
       }
     }
 
-    // Domain check for EIS_DMZ in UPDATE statements
+    // NEW RULE: Domain check for EIS_DMZ in UPDATE statements
     if (upper.includes('EIS_DMZ') && !stmt.text.toLowerCase().includes('siservices.bank.sbi')) {
       push('error', 'Update containing EIS_DMZ must have "siservices.bank.sbi" as domain.');
     }
@@ -492,6 +550,12 @@ function detectDuplicateCacheKeys(queryReports: QueryReport[]): void {
   });
 }
 
+/**
+ * Looks at every table reference in the SQL and returns whichever known
+ * schema (EISDEV/EISSIT/EISAPP) appears most often, or null if none is
+ * used yet. Used to auto-pick a sensible default Environment so the
+ * dropdown doesn't silently disagree with SQL the person just pasted.
+ */
 function detectDominantSchema(sql: string): string | null {
   const counts: Record<string, number> = {};
   parseQueries(sql).forEach(stmt => {
@@ -513,6 +577,7 @@ function schemaToEnvironment(schema: string): Environment | null {
   return match ? match[0] : null;
 }
 
+/** Runs the full validation pipeline over raw SQL text for a given target environment. */
 function validateSql(sql: string, environment: Environment): ValidationSummary {
   const fragments = parseAllFragments(sql);
   const statements = fragments.filter(f => !f.isCommit);
@@ -521,6 +586,10 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
     const queryNumber = i + 1;
     const messages = validateStatement(stmt, queryNumber, sql, environment);
 
+    // PROD rule: every functional query must be immediately followed by its
+    // own COMMIT; — checked against the original fragment order so blank
+    // lines/whitespace between them don't matter, but an intervening
+    // statement does.
     if (environment === 'PROD') {
       const positionInAll = fragments.indexOf(stmt);
       const nextFragment = fragments[positionInAll + 1];
@@ -565,7 +634,6 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
     totalWarnings: allMessages.filter(m => m.severity === 'warning').length,
   };
 }
-
 
 // ============================================================================
 // Main React Component
