@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Database,
   Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
-  XCircle, Loader2, ListChecks
+  XCircle, Loader2, ListChecks, ArrowLeft
 } from 'lucide-react';
 import { CopyButton } from './CopyButton';
 
@@ -57,6 +57,10 @@ interface ParsedStatement {
   trimmedText: string;
   startIndex: number;
   hasSemicolon: boolean;
+}
+
+export interface YamlToolProps {
+  onBack?: () => void;
 }
 
 // ============================================================================
@@ -567,7 +571,7 @@ function validateSql(sql: string, environment: Environment): ValidationSummary {
 // Main React Component
 // ============================================================================
 
-export default function YamlTool(): ReactElement {
+export default function YamlTool({ onBack }: YamlToolProps): ReactElement {
   const [formData, setFormData] = useState<FormData>({
     apiName: '',
     node: '',
@@ -599,7 +603,7 @@ export default function YamlTool(): ReactElement {
       const result = validateSql(formData.sql, formData.environment);
       setSummary(result);
       setIsProcessing(false);
-    }, 150); // Small timeout to show loading state if desired
+    }, 150);
   }, [formData]);
 
   const hasIssues = useMemo(() => {
@@ -610,9 +614,18 @@ export default function YamlTool(): ReactElement {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 text-slate-800">
       
-      {/* Header utilizing icons */}
+      {/* Header utilizing icons and Back Button */}
       <div className="flex items-center justify-between pb-4 border-b">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {onBack && (
+            <button 
+              onClick={onBack} 
+              className="p-1.5 hover:bg-slate-100 rounded-md transition-colors text-slate-500 hover:text-slate-800"
+              title="Go Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           <Database className="w-6 h-6 text-blue-600" />
           <h1 className="text-2xl font-bold">SQL Deployment Validator</h1>
         </div>
@@ -631,7 +644,7 @@ export default function YamlTool(): ReactElement {
             </label>
             <div className="relative">
               <select
-                className="w-full p-2 border rounded appearance-none pr-8"
+                className="w-full p-2 border rounded appearance-none pr-8 focus:ring focus:ring-blue-200 outline-none"
                 value={formData.environment}
                 onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as Environment }))}
               >
@@ -743,7 +756,6 @@ export default function YamlTool(): ReactElement {
                 </div>
               )}
               
-              {/* Success Messages toggle could go here, omitting for brevity but ensuring imports are used */}
               {!hasIssues && summary.totalQueries > 0 && (
                 <div className="flex justify-center text-green-600 pt-4">
                   <CheckCircle2 className="w-12 h-12" />
