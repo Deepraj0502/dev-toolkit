@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Database,
   Settings, CheckCircle2, Eye, Terminal, ShieldAlert,
   ChevronDown, Sparkles, ShieldCheck, Rocket, AlertTriangle,
-  XCircle, Loader2, ListChecks, ArrowLeft
+  XCircle, Loader2, ListChecks
 } from 'lucide-react';
 import { CopyButton } from './CopyButton';
 
