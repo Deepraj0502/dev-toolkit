@@ -343,9 +343,9 @@ function validateStatement(
   const statementType = getStatementType(upper);
 
   // Check for line breaks inside the SQL query using trimmedText to avoid flagging spaces between queries
-  //if (stmt.trimmedText.includes('\n') || stmt.trimmedText.includes('\r')) {
-   // push('error', 'Line breaks are not allowed inside a SQL query.');
-//  }
+  if (stmt.trimmedText.includes('\n') || stmt.trimmedText.includes('\r')) {
+    push('error', 'Line breaks are not allowed inside a SQL query.');
+  }
 
   // Rule 2: statement type must be one of the allowed set
   if (statementType === 'UNKNOWN') {
@@ -405,7 +405,6 @@ function validateStatement(
       const fieldValueIdx = columns.indexOf('FIELD_VALUE');
 
       if (fieldNameIdx !== -1 || fieldValueIdx !== -1) {
-        // Fix: Use the untrimmed text to locate the exact string index so the offset doesn't break multi-line pastes
         const stmtUpper = stmt.text.toUpperCase();
         const valuesIdx = stmtUpper.match(/\bVALUES\b/)?.index;
         
@@ -621,7 +620,7 @@ async function formatSql(sql: string): Promise<string> {
   return lines.join('\n\n');
 }
 
-/** Builds the final YAML string from form + validated SQL (unchanged core logic). */
+/** Builds the final YAML string from form + validated SQL (fixed extraction for UPDATE queries). */
 function buildYaml(formData: FormData): string {
   const { apiName, node, server, deploy, sql } = formData;
   let yaml = `${apiName || 'API_Name'}:\n  IntegrationNode: ${node}\n  IntegrationServer: ${server}\n  Deploy: ${deploy}\n  Cache:\n`;
@@ -632,11 +631,22 @@ function buildYaml(formData: FormData): string {
     const query = text.trim();
     let fieldName = '';
     let fieldValue = '';
+    const upperQuery = query.toUpperCase();
 
-    if (query.toUpperCase().includes('CACHE_DETAILS')) {
-      const matches = [...query.matchAll(/'(.*?)'/g)];
-      if (matches[0]) fieldName = matches[0][1].replace(/ /g, '\u00B7');
-      if (matches[1]) fieldValue = matches[1][1].replace(/ /g, '\u00B7');
+    if (upperQuery.includes('CACHE_DETAILS')) {
+      if (upperQuery.startsWith('UPDATE')) {
+        // Fix: Explicitly search for the assigned values to prevent flipping in UPDATE queries
+        const fnMatch = query.match(/FIELD_NAME\s*=\s*'([^']*)'/i);
+        const fvMatch = query.match(/FIELD_VALUE\s*=\s*'([^']*)'/i);
+        
+        if (fnMatch) fieldName = fnMatch[1].replace(/ /g, '\u00B7');
+        if (fvMatch) fieldValue = fvMatch[1].replace(/ /g, '\u00B7');
+      } else {
+        // Default behavior for INSERT statements
+        const matches = [...query.matchAll(/'(.*?)'/g)];
+        if (matches[0]) fieldName = matches[0][1].replace(/ /g, '\u00B7');
+        if (matches[1]) fieldValue = matches[1][1].replace(/ /g, '\u00B7');
+      }
     }
 
     yaml += `    - Query: "${query.replace(/"/g, '\\"')};"\n      FIELD_NAME: "${fieldName}"\n      FIELD_VALUE: "${fieldValue}"\n`;
