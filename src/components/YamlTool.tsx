@@ -415,14 +415,14 @@ function validateStatement(
             const vals = splitArgs(tuple);
 
             // Rule: No spaces allowed in FIELD_NAME or FIELD_VALUE parameter values
-            [fieldNameIdx, fieldValueIdx].forEach(idx => {
-              if (idx !== -1 && vals[idx]) {
-                const valInside = vals[idx].replace(/^'|'$/g, '');
-                if (valInside.includes(' ')) {
-                  push('error', `Space not allowed in parameter value for ${columns[idx]} (row ${tIdx + 1}).`);
-                }
-              }
-            });
+            // [fieldNameIdx, fieldValueIdx].forEach(idx => {
+            //   if (idx !== -1 && vals[idx]) {
+            //     const valInside = vals[idx].replace(/^'|'$/g, '');
+            //     if (valInside.includes(' ')) {
+            //       push('error', `Space not allowed in parameter value for ${columns[idx]} (row ${tIdx + 1}).`);
+            //     }
+            //   }
+            // });
 
             // Rule: If FIELD_NAME contains EIS_DMZ, FIELD_VALUE must have siservices.bank.sbi
             if (fieldNameIdx !== -1 && fieldValueIdx !== -1 && vals[fieldNameIdx] && vals[fieldValueIdx]) {
