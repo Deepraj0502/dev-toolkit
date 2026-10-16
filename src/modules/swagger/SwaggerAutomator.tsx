@@ -1,7 +1,6 @@
-// src/components/swagger/SwaggerAutomator.tsx
 import { useState, useEffect } from 'react';
-import { Play, RotateCcw, ShieldCheck } from 'lucide-react';
-import { performRealValidation } from '../../utils/swaggerCore';
+import { Play, RotateCcw, ShieldCheck, Layers } from 'lucide-react';
+import { performRealValidation, type SwaggerGenVersion } from '../../utils/swaggerCore';
 import type { ValidationIssue } from '../../utils/swaggerCore';
 
 import FileDropzone from './FileDropzone';
@@ -14,26 +13,26 @@ export default function SwaggerAutomator() {
   const [yaml, setYaml] = useState('');
   const [xsdName, setXsdName] = useState('');
   const [yamlName, setYamlName] = useState('');
+  const [genVersion, setGenVersion] = useState<SwaggerGenVersion>('GEN_6');
 
   const [report, setReport] = useState<ValidationIssue[]>([]);
   const [outputYaml, setOutputYaml] = useState<string>('');
   const [fieldEdits, setFieldEdits] = useState<Record<string, any>>({});
   const [editingField, setEditingField] = useState<any | null>(null);
 
-  // State to track user actions on undocumented fields
   const [removedFields, setRemovedFields] = useState<string[]>([]);
   const [ignoredFields, setIgnoredFields] = useState<string[]>([]);
 
   const handleRunValidation = () => {
     if (!xsd && !yaml) return;
 
-    // Pass removedFields and ignoredFields into your engine
     const { issues, updatedYaml } = performRealValidation(
       xsd,
       yaml,
       fieldEdits,
       removedFields,
-      ignoredFields
+      ignoredFields,
+      genVersion
     );
 
     setReport(issues);
@@ -52,7 +51,6 @@ export default function SwaggerAutomator() {
     setIgnoredFields([]);
   };
 
-  // Automatically re-run validation when any field edit, removal, or ignore happens
   useEffect(() => {
     if (xsd || yaml) {
       const { issues, updatedYaml } = performRealValidation(
@@ -60,12 +58,13 @@ export default function SwaggerAutomator() {
         yaml,
         fieldEdits,
         removedFields,
-        ignoredFields
+        ignoredFields,
+        genVersion
       );
       setReport(issues);
       setOutputYaml(updatedYaml);
     }
-  }, [fieldEdits, removedFields, ignoredFields]);
+  }, [fieldEdits, removedFields, ignoredFields, genVersion]);
 
   const saveFieldEdit = (updatedField: any) => {
     setFieldEdits((prev) => ({ ...prev, [updatedField.name]: updatedField }));
@@ -90,7 +89,26 @@ export default function SwaggerAutomator() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 self-end sm:self-auto w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto w-full sm:w-auto">
+          {/* Generation Version Selector */}
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 px-3 py-2 rounded-xl">
+            <Layers size={15} className="text-indigo-500 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Spec:</span>
+            <select
+              value={genVersion}
+              onChange={(e) => setGenVersion(e.target.value as SwaggerGenVersion)}
+              aria-label="Swagger Generation Version"
+              className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer pr-1"
+            >
+              <option value="GEN_6" className="bg-slate-900 text-slate-200">
+                Gen 6 Swagger
+              </option>
+              <option value="GEN_7" className="bg-slate-900 text-slate-200">
+                Gen 7 Swagger
+              </option>
+            </select>
+          </div>
+
           <button
             onClick={handleReset}
             className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -111,7 +129,7 @@ export default function SwaggerAutomator() {
 
       {/* Main Responsive Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Dropzones (Spans 6 cols on Desktop) */}
+        {/* Left Column: Dropzones */}
         <div className="lg:col-span-6 flex flex-col gap-6 bg-white dark:bg-slate-900/60 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
           <FileDropzone
             label="UAT Validation Schema (XSD)"
@@ -136,7 +154,7 @@ export default function SwaggerAutomator() {
               accept=".yaml,.yml,.json"
               value={yaml}
               fileName={yamlName}
-              placeholder="Drag & drop Dev OpenAPI file here, or paste existing Swagger YAML..."
+              placeholder="Drag & drop Dev OpenAPI file here, or paste existing Swagger JSON..."
               onFileSelect={(content, name) => {
                 setYaml(content);
                 setYamlName(name);
@@ -150,7 +168,7 @@ export default function SwaggerAutomator() {
           </div>
         </div>
 
-        {/* Right Column: Reports & Code Output (Spans 6 cols on Desktop) */}
+        {/* Right Column: Reports & Code Output */}
         <div className="lg:col-span-6 flex flex-col gap-6 w-full">
           <div className="w-full">
             <ValidationReport

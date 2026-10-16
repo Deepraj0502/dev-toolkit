@@ -1,6 +1,6 @@
-// src/utils/swaggerCore.ts
-
 const XSD_NS = 'http://www.w3.org/2001/XMLSchema';
+
+export type SwaggerGenVersion = 'GEN_6' | 'GEN_7';
 
 export interface ValidationIssue {
   type: 'ok' | 'warn' | 'err';
@@ -43,34 +43,83 @@ function localName(qname: string) {
 
 const ENVELOPE_ONLY_FIELDS = new Set(['REQUEST_REFERENCE_NUMBER']);
 
-const STANDARD_FIELD_TEXT: Record<string, { description?: string; enum?: string[] }> = {
+export const GEN_6_ERROR_CODES = [
+  'SI002:SI510|EIS APPLICATION INACTIVE',
+  'SI569:BRANCH/TELLER MISSING',
+  'SI570:BIT MAPPING NOT CONFIGURED',
+  'SI014:SI500|EIS APPLICATION TIMEOUT',
+  'SI011:SI520|INCORRECT DATA IN <TAG_NAME>',
+  'SI011:SI520|MISSING FIELD <TAG_NAME>',
+  'SI011:SI520|EXCESS FIELD PROVIDED <TAG_NAME>',
+  'SI011:SI520|PARSING EXCEPTION',
+  'SI001:SI530|INCORRECT REQUEST FORMATION',
+  'SI001:SI530|DATA PROCESSING FAILED',
+  'SI001:SI599|UNABLE TO PROCESS DUE TO TECHNICAL ERROR',
+  'SI007:SI550|INTERNAL ERROR',
+  'SI017:SI551|DB INTERNAL ERROR',
+  'SI094:REFERENCE NUMBER NOT UNIQUE',
+  'SI095:REFERENCE NUMBER NOT OF 25 CHAR',
+  'SI096:REFERENCE NUMBER AND SOURCE ID MISMATCH',
+  'SI097:REFERENCE NUMBER IS NOT OF FORMAT SBIXXX',
+  'SI001:SI699|Any other unhandled exception received by EIS during service call with downstream',
+  '<>002:<> will contain 2 character destination indicator followed by 002,indicates error being received from downstream application',
+  '<>014:<> will contain 2 character destination indicator followed by 014.indicates timeout',
+];
+
+export const GEN_7_ERROR_CODES = [
+  'SI002:SI510|EIS APPLICATION INACTIVE',
+  'SI569:BRANCH/TELLER MISSING',
+  'SI570:BIT MAPPING NOT CONFIGURED',
+  'SI014:SI500|EIS APPLICATION TIMEOUT',
+  'SI011:SI520|INCORRECT DATA IN <TAG_NAME>',
+  'SI011:SI520|MISSING FIELD <TAG_NAME>',
+  'SI011:SI520|PARSING EXCEPTION',
+  'SI001:SI530|INCORRECT REQUEST FORMATION',
+  'SI001:SI530|DATA PROCESSING FAILED',
+  'SI001:SI599|UNABLE TO PROCESS DUE TO TECHNICAL ERROR',
+  'SI007:SI550|INTERNAL ERROR',
+  'SI407:REQUEST_REFERENCE_NUMBER Missing in Encrypted Request',
+  'SI408:REQUEST Field Missing in Encrypted Request!!',
+  'SI409:DIGI_SIGN Missing in Encrypted Request!!',
+  'SI405:SOURCE_ID Missing in Plain Request!!!!',
+  'SI005:Access restricted for the given service!!',
+  'SI001:SI699|UNABLE TO PROCESS DUE TO TECHNICAL ERROR',
+  'SI011:SI520|UNEXPECTED FIELD DESTINATION',
+  'SI412:Unauthorized AES decryption Failed!!',
+  'SI413:DIGI-SIGN verification failed!!',
+  'SI411:RSA decryption Failed!! Decrypted key length insufficient for AES-256',
+  'SI401|Validation error BAD request received!!',
+  'SI017:SI551|DB INTERNAL ERROR',
+  'SI094:REFERENCE NUMBER NOT UNIQUE',
+  'SI095:REFERENCE NUMBER NOT OF 25 CHAR',
+  'SI096:REFERENCE NUMBER AND SOURCE ID MISMATCH',
+  'SI097:REFERENCE NUMBER IS NOT OF FORMAT SBIXXX',
+  'SI001:SI699|Any other unhandled exception received by EIS during service call with downstream',
+  '<>002:<> will contain 2 character destination indicator followed by 002,indicates error being received from downstream application',
+  '<>014:<> will contain 2 character destination indicator followed by 014.indicates timeout',
+];
+
+export const GEN_7_MANDATORY_HEADERS = [
+  {
+    name: 'Client-Id',
+    type: 'string',
+    required: true,
+    in: 'header',
+    description: 'Obtained for application from EIS Dev Portal',
+  },
+  {
+    name: 'Client-Secret',
+    type: 'string',
+    required: true,
+    in: 'header',
+    description: 'Obtained for application from EIS Dev Portal',
+  },
+];
+
+const STANDARD_FIELD_TEXT: Record<string, { description?: string }> = {
   REQUEST_REFERENCE_NUMBER: {
     description:
       'Unique Request Reference Number should be of format SBIXXYYDDDHHmmssSSSNNNNNN First 3 alphabets will always be SBI, XX will signify Channel Identifier (eg: LT for YONO channel),YYDDD will signify the Julian Date (eg: 26-02-2020 will be represented as 20057),HHmmssSSS will signify the current time in hours, minutes, second and milisecond,NNNNNN will signify running sequence number.',
-  },
-  ERROR_CODE: {
-    enum: [
-      'SI002:SI510|EIS APPLICATION INACTIVE',
-      'SI569:BRANCH/TELLER MISSING',
-      'SI570:BIT MAPPING NOT CONFIGURED',
-      'SI014:SI500|EIS APPLICATION TIMEOUT',
-      'SI011:SI520|INCORRECT DATA IN <TAG_NAME>',
-      'SI011:SI520|MISSING FIELD <TAG_NAME>',
-      'SI011:SI520|EXCESS FIELD PROVIDED <TAG_NAME>',
-      'SI011:SI520|PARSING EXCEPTION',
-      'SI001:SI530|INCORRECT REQUEST FORMATION',
-      'SI001:SI530|DATA PROCESSING FAILED',
-      'SI001:SI599|UNABLE TO PROCESS DUE TO TECHNICAL ERROR',
-      'SI007:SI550|INTERNAL ERROR',
-      'SI017:SI551|DB INTERNAL ERROR',
-      'SI094:REFERENCE NUMBER NOT UNIQUE',
-      'SI095:REFERENCE NUMBER NOT OF 25 CHAR',
-      'SI096:REFERENCE NUMBER AND SOURCE ID MISMATCH',
-      'SI097:REFERENCE NUMBER IS NOT OF FORMAT SBIXXX',
-      'SI001:SI699|Any other unhandled exception received by EIS during service call with downstream',
-      '<>002:<> will contain 2 character destination indicator followed by 002,indicates error being received from downstream application',
-      '<>014:<> will contain 2 character destination indicator followed by 014.indicates timeout',
-    ],
   },
 };
 
@@ -347,7 +396,7 @@ function setStringField(text: string, blockStart: number, blockEnd: number, key:
   if (existing) {
     return text.slice(0, existing.start) + escaped + text.slice(existing.end);
   }
-  const insertion = `\n      "${key}": "${escaped}",`;
+  const insertion = `\n "${key}": "${escaped}",`;
   return text.slice(0, blockStart + 1) + insertion + text.slice(blockStart + 1);
 }
 
@@ -364,29 +413,28 @@ function setArrayField(text: string, blockStart: number, blockEnd: number, key: 
   if (existing) {
     return text.slice(0, existing.start) + formatted + text.slice(existing.end);
   }
-  const insertion = `\n      "${key}": ${formatted},`;
+  const insertion = `\n "${key}": ${formatted},`;
   return text.slice(0, blockStart + 1) + insertion + text.slice(blockStart + 1);
 }
 
-function checkStandardFields(text: string, spec: any, changes: ValidationIssue[]): string {
+function checkStandardFields(text: string, spec: any, changes: ValidationIssue[], genVersion: SwaggerGenVersion): string {
   const defs = spec?.definitions || spec?.components?.schemas;
   if (!defs) return text;
   let out = text;
+  const targetEnum = genVersion === 'GEN_7' ? GEN_7_ERROR_CODES : GEN_6_ERROR_CODES;
 
   for (const defName of Object.keys(defs)) {
     const props = defs[defName]?.properties;
     if (!props) continue;
 
     for (const propName of Object.keys(props)) {
-      const rule = STANDARD_FIELD_TEXT[propName];
-      if (!rule) continue;
-
-      if (rule.description !== undefined) {
+      if (propName === 'REQUEST_REFERENCE_NUMBER') {
+        const expectedDesc = STANDARD_FIELD_TEXT.REQUEST_REFERENCE_NUMBER.description;
         const current = props[propName]?.description;
-        if (current !== rule.description) {
+        if (current !== expectedDesc) {
           const block = locatePropertyBlock(out, defName, propName);
           if (block) {
-            out = setStringField(out, block.start, block.end, 'description', rule.description);
+            out = setStringField(out, block.start, block.end, 'description', expectedDesc!);
             changes.push({
               type: 'ok',
               title: `Auto-Fixed description: "${propName}" (${defName})`,
@@ -398,22 +446,23 @@ function checkStandardFields(text: string, spec: any, changes: ValidationIssue[]
         }
       }
 
-      if (rule.enum !== undefined) {
+      if (propName === 'ERROR_CODE') {
         const currentEnum: string[] | undefined = props[propName]?.enum;
         const matches =
           Array.isArray(currentEnum) &&
-          currentEnum.length === rule.enum.length &&
-          currentEnum.every((v, i) => v === rule.enum![i]);
+          currentEnum.length === targetEnum.length &&
+          currentEnum.every((v, i) => v === targetEnum[i]);
+
         if (!matches) {
           const block = locatePropertyBlock(out, defName, propName);
           if (block) {
-            out = setArrayField(out, block.start, block.end, 'enum', rule.enum);
+            out = setArrayField(out, block.start, block.end, 'enum', targetEnum);
             changes.push({
               type: 'ok',
-              title: `Auto-Fixed enum: "${propName}" (${defName})`,
+              title: `Auto-Fixed ${genVersion} ERROR_CODE enum: (${defName})`,
               sub: currentEnum === undefined
-                ? `Injected standard error-code enum for "${propName}" in "${defName}".`
-                : `Corrected non-standard enum values for "${propName}" in "${defName}".`,
+                ? `Injected standard ${genVersion} error code enum in "${defName}".`
+                : `Updated error codes to match ${genVersion} specifications in "${defName}".`,
             });
           }
         }
@@ -423,11 +472,63 @@ function checkStandardFields(text: string, spec: any, changes: ValidationIssue[]
   return out;
 }
 
+/**
+ * Validates and ensures Gen 7 Header Parameters (Client-Id & Client-Secret) exist in all paths/operations
+ */
+function validateGen7Headers(text: string, spec: any, changes: ValidationIssue[]): string {
+  if (!spec?.paths) return text;
+  let parsedSpec: any;
+  try {
+    parsedSpec = JSON.parse(text);
+  } catch {
+    parsedSpec = spec;
+  }
+
+  let modified = false;
+  const methods = ['get', 'post', 'put', 'delete', 'patch'];
+
+  for (const pathKey of Object.keys(parsedSpec.paths || {})) {
+    const pathObj = parsedSpec.paths[pathKey];
+
+    for (const method of methods) {
+      const operation = pathObj[method];
+      if (!operation) continue;
+
+      operation.parameters = operation.parameters || [];
+      const existingHeaders = new Set(
+        operation.parameters
+          .filter((p: any) => p.in === 'header')
+          .map((p: any) => p.name.toLowerCase())
+      );
+
+      for (const requiredHeader of GEN_7_MANDATORY_HEADERS) {
+        if (!existingHeaders.has(requiredHeader.name.toLowerCase())) {
+          // Add right before body parameter if body exists, otherwise unshift
+          const bodyIndex = operation.parameters.findIndex((p: any) => p.in === 'body');
+          if (bodyIndex !== -1) {
+            operation.parameters.splice(bodyIndex, 0, { ...requiredHeader });
+          } else {
+            operation.parameters.push({ ...requiredHeader });
+          }
+          modified = true;
+          changes.push({
+            type: 'ok',
+            title: `Added Gen 7 Header: "${requiredHeader.name}"`,
+            sub: `Injected missing mandatory header parameter into ${method.toUpperCase()} ${pathKey}.`,
+          });
+        }
+      }
+    }
+  }
+
+  return modified ? JSON.stringify(parsedSpec, null, 2) : text;
+}
+
 function injectMaxLength(text: string, defName: string, propName: string, maxLength: number): string {
   const block = locatePropertyBlock(text, defName, propName);
   if (!block) return text;
   const body = text.slice(block.start, block.end);
-  const patched = body.slice(0, 1) + `\n      "maxLength": ${maxLength},` + body.slice(1);
+  const patched = body.slice(0, 1) + `\n "maxLength": ${maxLength},` + body.slice(1);
   return text.slice(0, block.start) + patched + text.slice(block.end);
 }
 
@@ -439,10 +540,6 @@ function patchMaxLength(text: string, defName: string, propName: string, oldVal:
   return text.slice(0, block.start) + patchedBody + text.slice(block.end);
 }
 
-/**
- * Correctly locates the FULL `"KEY": { ... }` line inside properties and cleanly removes it
- * along with trailing commas so JSON validation does not break.
- */
 function removePropertyFromSpec(text: string, defName: string, propName: string): string {
   const propsBlock = locatePropertiesBlock(text, defName);
   if (!propsBlock) return text;
@@ -496,7 +593,7 @@ function addToRequired(text: string, defName: string, fieldName: string): string
   }
   const propsBlock = locatePropertiesBlock(text, defName);
   if (!propsBlock) return text;
-  const insertion = `,\n    "required" : [ "${fieldName}" ]`;
+  const insertion = `,\n "required" : [ "${fieldName}" ]`;
   return text.slice(0, propsBlock.end) + insertion + text.slice(propsBlock.end);
 }
 
@@ -531,7 +628,7 @@ function injectMissingFields(text: string, defName: string, missing: XsdField[])
       if (f.isArray) obj.items = { type: f.oapiType || 'string' };
       if (f.length) obj.maxLength = parseInt(f.length, 10);
       if (f.description) obj.description = f.description;
-      return `      "${f.name}": ${JSON.stringify(obj)}`;
+      return ` "${f.name}": ${JSON.stringify(obj)}`;
     })
     .join(',\n');
 
@@ -544,7 +641,8 @@ export function performRealValidation(
   yamlContent: string,
   fieldEdits: Record<string, any> = {},
   removedFields: string[] = [],
-  ignoredFields: string[] = []
+  ignoredFields: string[] = [],
+  genVersion: SwaggerGenVersion = 'GEN_6'
 ): ValidationResult {
   const issues: ValidationIssue[] = [];
   const changes: ValidationIssue[] = [];
@@ -573,7 +671,7 @@ export function performRealValidation(
     issues.push({
       type: 'warn',
       title: 'Non-JSON spec detected',
-      sub: 'This tool reliably targets JSON-formatted Swagger/OpenAPI. Plain YAML syntax cannot be safely parsed or patched here — convert to JSON first, or results below should be treated as unverified.',
+      sub: 'This tool targets JSON-formatted Swagger specs. YAML specs cannot be safely patched inline; convert to JSON format first.',
     });
     return { issues, updatedYaml, parsedXsdFields };
   }
@@ -584,7 +682,7 @@ export function performRealValidation(
     issues.push({
       type: 'err',
       title: 'No matching schema definition found',
-      sub: `None of the definitions/components.schemas blocks share property names with the XSD fields (${fieldNames.join(', ')}). Confirm the plaintext payload definition (e.g. a "PlainJSON..." schema) is present in this spec.`,
+      sub: `None of the definitions share property names with the XSD fields (${fieldNames.join(', ')}).`,
     });
     return { issues, updatedYaml, parsedXsdFields };
   }
@@ -594,8 +692,8 @@ export function performRealValidation(
   ).length;
   issues.push({
     type: 'ok',
-    title: `Matched target schema: "${targetDef.name}"`,
-    sub: `Selected by property-name overlap (${matchedCount} of ${fieldNames.length} XSD fields matched).`,
+    title: `Matched target schema: "${targetDef.name}" [${genVersion}]`,
+    sub: `Selected by property overlap (${matchedCount} of ${fieldNames.length} XSD fields matched).`,
   });
 
   const missingForInjection: XsdField[] = [];
@@ -610,7 +708,7 @@ export function performRealValidation(
         changes.push({
           type: 'warn',
           title: `Composite pattern on "${name}"`,
-          sub: `Pattern "${effField.pattern}" combines multiple quantifiers — derived max length (${est.max}) is a best-effort estimate.`,
+          sub: `Pattern "${effField.pattern}" derived max length (${est.max}) is an estimate.`,
         });
       }
     }
@@ -621,7 +719,7 @@ export function performRealValidation(
       issues.push({
         type: 'err',
         title: `Missing Schema Property: "${name}"`,
-        sub: `Mandatory field defined in the validation XSD is absent from "${targetDef.name}" in the OpenAPI spec.`,
+        sub: `Mandatory field defined in XSD is absent from "${targetDef.name}".`,
         missingFields: [effField],
       });
       missingForInjection.push(effField);
@@ -635,14 +733,14 @@ export function performRealValidation(
       changes.push({
         type: 'ok',
         title: `Auto-Fixed required: "${actualKey}"`,
-        sub: `XSD has minOccurs=1 (mandatory) — added "${actualKey}" to "${targetDef.name}"'s required array.`,
+        sub: `XSD has minOccurs=1 — added "${actualKey}" to "${targetDef.name}" required array.`,
       });
     } else if (!effField.required && isRequiredInSpec) {
       updatedYaml = removeFromRequired(updatedYaml, targetDef.name, actualKey);
       changes.push({
         type: 'ok',
         title: `Auto-Fixed required: "${actualKey}"`,
-        sub: `XSD has minOccurs=0 (optional) — removed "${actualKey}" from "${targetDef.name}"'s required array.`,
+        sub: `XSD has minOccurs=0 — removed "${actualKey}" from "${targetDef.name}" required array.`,
       });
     }
 
@@ -669,7 +767,7 @@ export function performRealValidation(
     }
   });
 
-  // Check for undocumented fields
+  // Check undocumented fields
   for (const propName of Object.keys(targetDef.properties)) {
     if (ENVELOPE_ONLY_FIELDS.has(propName)) continue;
     if (ignoredFields.includes(propName)) continue;
@@ -680,7 +778,7 @@ export function performRealValidation(
       changes.push({
         type: 'ok',
         title: `Removed Undocumented Field: "${propName}"`,
-        sub: `Cleanly excised "${propName}" from "${targetDef.name}".`,
+        sub: `Removed "${propName}" from "${targetDef.name}".`,
       });
       continue;
     }
@@ -689,7 +787,7 @@ export function performRealValidation(
       issues.push({
         type: 'warn',
         title: `Undocumented in XSD: "${propName}"`,
-        sub: `"${propName}" exists in "${targetDef.name}" but has no corresponding element in the validation XSD. Choose an action:`,
+        sub: `"${propName}" exists in "${targetDef.name}" but not in XSD.`,
         undocumentedField: { name: propName, defName: targetDef.name },
       });
     }
@@ -703,17 +801,28 @@ export function performRealValidation(
         changes.push({
           type: 'ok',
           title: `Auto-Fixed required: "${f.name}"`,
-          sub: `XSD has minOccurs=1 — added newly-inserted "${f.name}" to "${targetDef.name}"'s required array.`,
+          sub: `Added newly-inserted "${f.name}" to "${targetDef.name}" required array.`,
         });
       }
     }
   }
 
+  // Enforce version-specific Error Codes
   try {
     const latestSpec = JSON.parse(updatedYaml);
-    updatedYaml = checkStandardFields(updatedYaml, latestSpec, changes);
+    updatedYaml = checkStandardFields(updatedYaml, latestSpec, changes, genVersion);
   } catch {
-    updatedYaml = checkStandardFields(updatedYaml, spec, changes);
+    updatedYaml = checkStandardFields(updatedYaml, spec, changes, genVersion);
+  }
+
+  // Validate and Inject Gen 7 Headers if Gen 7 is selected
+  if (genVersion === 'GEN_7') {
+    try {
+      const parsed = JSON.parse(updatedYaml);
+      updatedYaml = validateGen7Headers(updatedYaml, parsed, changes);
+    } catch {
+      // Fallback
+    }
   }
 
   const sortedReport = [...issues, ...changes].sort((a, b) => {
@@ -730,11 +839,13 @@ function xsdToOapi(t: string) {
   if (/boolean/.test(t)) return 'boolean';
   return 'string';
 }
+
 function xsdFormat(t: string) {
   if (/dateTime/.test(t)) return 'date-time';
   if (/date$/.test(t)) return 'date';
   return null;
 }
+
 function xsdDirectionOfNode(el: Element) {
   let node: Element | null = el;
   while (node && node.getAttribute) {
