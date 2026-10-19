@@ -50,6 +50,7 @@ import NetcatTesterPanel from "./components/NetcatTesterPanel";
 import SwaggerEditor from "./components/SwaggerEditor";
 import TextDiffViewer from "./components/TextDiffViewer";
 import { TiltCard } from "./components/TiltCard";
+import { CacheManager } from "./components/CacheManager";
 
 // ─── TOOL CONFIGURATION DEFINITION ──────────────────────────────────────
 const TOOLS_CONFIG = [
@@ -92,6 +93,16 @@ const TOOLS_CONFIG = [
     category: "Middleware",
     roles: ["*"],
     render: (onBack: () => void) => <CacheGeneratorTool onBack={onBack} />,
+  },
+  {
+    id: "cache-loader",
+    title: "Load Cache",
+    desc: "Broadcast cache load/fetch across multi-server IP ranges",
+    headerTitle: "Cache Server Manager",
+    icon: Layers,
+    category: "Middleware",
+    roles: ["*"],
+    render: () => <CacheManager />,
   },
   {
     id: "sftp",
