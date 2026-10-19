@@ -17,12 +17,10 @@ import {
   Clock,
   Layers,
   ShieldCheck,
-  ChevronRight,
   Maximize2,
   FileCode,
-  Tag,
   Sparkles,
-  Server
+  Server,
 } from "lucide-react";
 
 // ── Types & Interfaces ───────────────────────────────────────────────
@@ -50,7 +48,6 @@ export interface QueryTab {
   rowCount: number;
   executionTime: number | string | null;
   errorMessage?: string;
-  rawResponse?: any;
 }
 
 export interface CopyButtonProps {
@@ -65,7 +62,7 @@ export interface AutocompleteSuggestion {
   title?: string;
 }
 
-// ── Exact Copy Logic ─────────────────────────────────────────────────
+// ── Clipboard Hook & CopyButton Component ─────────────────────────────
 
 export function useClipboard({ timeout = 2000 }: { timeout?: number } = {}) {
   const [copied, setCopied] = useState(false);
@@ -98,7 +95,7 @@ export function useClipboard({ timeout = 2000 }: { timeout?: number } = {}) {
 export function CopyButton({
   text,
   label = "Copy",
-  className = "inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer"
+  className = "inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer",
 }: CopyButtonProps) {
   const { copied, copy } = useClipboard({ timeout: 2000 });
 
@@ -109,7 +106,9 @@ export function CopyButton({
         e.stopPropagation();
         copy(text);
       }}
-      className={`${className} ${copied ? "!bg-emerald-950/80 !text-emerald-300" : ""}`}
+      className={`${className} ${
+        copied ? "!bg-emerald-950/80 !text-emerald-300" : ""
+      }`}
       title={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? (
@@ -120,58 +119,97 @@ export function CopyButton({
       ) : (
         <>
           <Copy className="h-3.5 w-3.5" />
-          <span>{label}</span>
+          {label && <span>{label}</span>}
         </>
       )}
     </button>
   );
 }
 
-// ── Pre-Defined Presets Catalog ──────────────────────────────────────
+// ── Statement Parser (Selection or Cursor Delimited by Semicolons) ───
+
+export function extractTargetQuery(
+  fullText: string,
+  selectionStart: number,
+  selectionEnd: number
+): { query: string; type: "SELECTION" | "AT_CURSOR" | "FULL" } {
+  if (selectionEnd > selectionStart) {
+    const selected = fullText.slice(selectionStart, selectionEnd).trim();
+    if (selected) {
+      return { query: selected, type: "SELECTION" };
+    }
+  }
+
+  const cursor = selectionStart;
+  let startIdx = 0;
+  for (let i = cursor - 1; i >= 0; i--) {
+    if (fullText[i] === ";") {
+      startIdx = i + 1;
+      break;
+    }
+  }
+
+  let endIdx = fullText.length;
+  for (let i = cursor; i < fullText.length; i++) {
+    if (fullText[i] === ";") {
+      endIdx = i;
+      break;
+    }
+  }
+
+  const statement = fullText.slice(startIdx, endIdx).trim();
+  if (statement.length > 0) {
+    return { query: statement, type: "AT_CURSOR" };
+  }
+
+  return { query: fullText.trim(), type: "FULL" };
+}
+
+// ── Enterprise Preset Catalog ────────────────────────────────────────
 
 const PRESET_QUERIES: PresetQuery[] = [
   // API_LOG & API_DETAILS
   {
     id: "api_log_1",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "Current Account Undertaking Link",
     sql: "SELECT * from API_LOG where URL like '%linkCurrentAccountToUndertaking/create%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "api_log_2",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "Deposits Stop Delete",
     sql: "SELECT * from API_LOG where URL like '%/depositsStop/Delete%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "api_log_3",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "M2P Transactions",
     sql: "SELECT * from API_LOG where API_NAME like '%M2P%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "api_log_4",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "Third Party Martech System",
     sql: "SELECT * from API_LOG where API_NAME like '%thirdPartyMartech_sys%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "api_log_5",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "Trace by Specific URN (API_LOG)",
     sql: "SELECT * from API_LOG where URN = 'SBIRL00437008202507893115';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "api_log_6",
-    category: "API_LOG & API_DETAILS",
+    category: "API_LOG",
     title: "Payload Lookup (API_DETAILS)",
     sql: "SELECT * from API_DETAILS where URN = 'SBIST242611500yh711g871yh';",
-    type: "SELECT"
+    type: "SELECT",
   },
 
   // ORCH_API_LOG & ORCH_API_DETAILS
@@ -180,35 +218,35 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "ORCH_API_LOG",
     title: "Orchestration by URN",
     sql: "SELECT * from ORCH_API_LOG where URN = 'SBIAK25010115346101020403';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "orch_2",
     category: "ORCH_API_LOG",
     title: "Orchestration URL Pattern (062111)",
     sql: "SELECT * from ORCH_API_LOG where URL like '%062111%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "orch_3",
     category: "ORCH_API_LOG",
     title: "Orchestration Details by URN",
     sql: "SELECT * from ORCH_API_DETAILS where URN = 'SBICR25111450000400002405';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "orch_4",
     category: "ORCH_API_LOG",
     title: "Orchestration Details by URN_CHILD list",
     sql: "SELECT * from ORCH_API_DETAILS where URN_CHILD in ('EISOB00020230729217334871','EISOB00020230729217423677');",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "orch_5",
     category: "ORCH_API_LOG",
     title: "Dump ORCH_API_LOG",
     sql: "SELECT * from ORCH_API_LOG;",
-    type: "SELECT"
+    type: "SELECT",
   },
 
   // BACKEND_LOG & BACKEND_DETAILS
@@ -217,42 +255,42 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "BACKEND_LOG",
     title: "Backend Log by URN",
     sql: "SELECT * from BACKEND_LOG where URN = 'SBILA24346021259000262804';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "be_2",
     category: "BACKEND_LOG",
     title: "Olive Publisher WealthHolding",
     sql: "SELECT * from BACKEND_LOG where END_POINT_URL like '%olive/publisher/WealthHolding%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "be_3",
     category: "BACKEND_LOG",
     title: "Data Duns Sub-type",
     sql: "SELECT * from BACKEND_LOG where TXN_SUB_TYPE ='DATA_DUNS';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "be_4",
     category: "BACKEND_LOG",
     title: "Backend CRM Endpoints",
     sql: "SELECT * from BACKEND_LOG WHERE TXN_ENDPOINT like '%CRM%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "be_5",
     category: "BACKEND_LOG",
     title: "Host s1d1ulmwa01.sbi.co.in Logs",
     sql: "SELECT * from BACKEND_LOG where end_point_url like '%s1d1ulmwa01.sbi.co.in%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "be_6",
     category: "BACKEND_LOG",
     title: "Backend Details by URN",
     sql: "SELECT * from BACKEND_DETAILS where URN = 'SBIYA25007174600000065377';",
-    type: "SELECT"
+    type: "SELECT",
   },
 
   // CBS_TXN_PARAM
@@ -261,7 +299,7 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "CBS_TXN_PARAM",
     title: "CBS Txn No 027300",
     sql: "SELECT * from CBS_TXN_PARAM where TXN_NO='027300';",
-    type: "SELECT"
+    type: "SELECT",
   },
 
   // CACHE_DETAILS
@@ -270,21 +308,21 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "CACHE_DETAILS",
     title: "Cache Details for GARIMA",
     sql: "SELECT * from CACHE_DETAILS where FIELD_NAME like '%GARIMA%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "cache_2",
     category: "CACHE_DETAILS",
     title: "Insert CE005 Length Source Config",
     sql: "INSERT into CACHE_DETAILS (FIELD_NAME,FIELD_VALUE,REQUEST_ACTION,PROCESSING_ACTION,RESPONSE_ACTION,SOURCE_ID,BACKEND_TYPE,BACKEND_SUB_TYPE,TRAN_CODE,SERVICE_NAME,CREATION_TIME)\nVALUES('CE005_Length_db',' 0147','NULL','SOURCE ID CONFIGURATION','NULL','NR','NULL','NULL','NULL','customerMiscDetails_NBC_sys',TRUNC(SYSDATE));",
-    type: "INSERT"
+    type: "INSERT",
   },
   {
     id: "cache_3",
     category: "CACHE_DETAILS",
     title: "Insert STZ Cheque Enquiry RespIndex",
     sql: "INSERT into CACHE_DETAILS (FIELD_NAME, FIELD_VALUE, REQUEST_ACTION, PROCESSING_ACTION, RESPONSE_ACTION, SOURCE_ID, BACKEND_TYPE, BACKEND_SUB_TYPE, TRAN_CODE, SERVICE_NAME,CREATION_TIME)\nVALUES('STZ_chequeEnquiry_expDS_RESPINDEX','1111','NULL','SOURCE ID CONFIGURATION','NULL','STZ','CBS','BANCS','036789','chequeEnquiry_expDS',TRUNC(SYSDATE));",
-    type: "INSERT"
+    type: "INSERT",
   },
 
   // URL_MAPPER
@@ -293,63 +331,56 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "URL_MAPPER",
     title: "Dump URL_MAPPER",
     sql: "SELECT * from URL_MAPPER;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_2",
     category: "URL_MAPPER",
     title: "URL Mapper by CR 611",
     sql: "SELECT * from URL_MAPPER where CR_NO like '%611%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_3",
     category: "URL_MAPPER",
     title: "Route URL with AOF",
     sql: "SELECT * from URL_MAPPER where (ROUTE_URL) like '%AOF%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_4",
     category: "URL_MAPPER",
     title: "TDS Gateway Route",
     sql: "SELECT * from URL_MAPPER where LB_URL like '%https://eissidev.sbi.co.in/gen5/gateway/payments/customerCreate/TDS%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_5",
     category: "URL_MAPPER",
     title: "Standing Instructions Route",
     sql: "SELECT * from URL_MAPPER where ROUTE_URL like '%standingInstruction_bth/create%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_6",
     category: "URL_MAPPER",
     title: "Standing Instructions Business API",
     sql: "SELECT * from URL_MAPPER where BUSINESS_API_NAME like '%standingInstructionsCreate_th_expD%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "url_7",
     category: "URL_MAPPER",
-    title: "Empty Dev Portal Title Check",
-    sql: "SELECT * from URL_MAPPER where API_TITLE_IN_DEV_PORTAL = '';",
-    type: "SELECT"
+    title: "Insert CIF Enquiry Inspection Route",
+    sql: "INSERT into URL_MAPPER (LB_URL, ROUTE_URL, INTERNAL_EXTERNAL_PASS, DEV_TEAM, BUSINESS_API_NAME, UPDATED_BY, TAG_MAKER_CHECKER_ENABLED, SUPERVISORY_ENABLED)\nvalues ('https://eissiuat.sbi.co.in/gen5/gateway/customers/CIF/Enquiry/inspection','http://eissiuat.sbi.co.in:3002/CIF/Enquiry/inspection/customers','INTERNAL','TCS','CIFEnquiryInspectionDetails_expDS','Samruddhi','Y','Y');",
+    type: "INSERT",
   },
   {
     id: "url_8",
     category: "URL_MAPPER",
-    title: "Insert CIF Enquiry Inspection Route",
-    sql: "INSERT into URL_MAPPER (LB_URL, ROUTE_URL, INTERNAL_EXTERNAL_PASS, DEV_TEAM, BUSINESS_API_NAME, UPDATED_BY, TAG_MAKER_CHECKER_ENABLED, SUPERVISORY_ENABLED)\nvalues ('https://eissiuat.sbi.co.in/gen5/gateway/customers/CIF/Enquiry/inspection','http://eissiuat.sbi.co.in:3002/CIF/Enquiry/inspection/customers','INTERNAL','TCS','CIFEnquiryInspectionDetails_expDS','Samruddhi','Y','Y');",
-    type: "INSERT"
-  },
-  {
-    id: "url_9",
-    category: "URL_MAPPER",
     title: "Insert CIF Amend Inspection Route",
     sql: "INSERT into URL_MAPPER (LB_URL, ROUTE_URL, INTERNAL_EXTERNAL_PASS, DEV_TEAM, BUSINESS_API_NAME, UPDATED_BY, TAG_MAKER_CHECKER_ENABLED, SUPERVISORY_ENABLED)\nvalues ('https://eissiuat.sbi.co.in/gen5/gateway/customers/CIF/Amend/inspection','http://eissiuat.sbi.co.in:3002/CIF/Amend/inspection/customers','INTERNAL','TCS','CIFAmendInspectionDetails_orchDS','Samruddhi','Y','Y');",
-    type: "INSERT"
+    type: "INSERT",
   },
 
   // SYS_URL_MAPPER
@@ -358,28 +389,28 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "SYS_URL_MAPPER",
     title: "Dump SYS_URL_MAPPER",
     sql: "SELECT * from SYS_URL_MAPPER;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "sys_2",
     category: "SYS_URL_MAPPER",
     title: "Insert Inspection Option NBC Sys (EXP)",
     sql: "INSERT into SYS_URL_MAPPER(ROUTE_URL,SYS_URL,SEQ_NO,UPDATED_BY,SYSTEM_API_NAME,ORCH_REMARKS)\nvalues ('http://eissiuat.sbi.co.in:3002/CIF/Enquiry/inspection/customers','/NBC/067083_A/bancs/cbs/customers','1','Samruddhi','inspectionOption_NBC_sys','EXP');",
-    type: "INSERT"
+    type: "INSERT",
   },
   {
     id: "sys_3",
     category: "SYS_URL_MAPPER",
     title: "Insert Inspection Option NBC Sys (ORCH)",
     sql: "INSERT into SYS_URL_MAPPER(ROUTE_URL,SYS_URL,SEQ_NO,UPDATED_BY,SYSTEM_API_NAME,ORCH_REMARKS)\nvalues ('http://eissiuat.sbi.co.in:3002/CIF/Amend/inspection/customers','/NBC/067083_A/bancs/cbs/customers','1','Samruddhi','inspectionOption_NBC_sys','ORCH');",
-    type: "INSERT"
+    type: "INSERT",
   },
   {
     id: "sys_4",
     category: "SYS_URL_MAPPER",
     title: "Update CR_NO for DOB Account",
     sql: "update SYS_URL_MAPPER SET CR_NO = '740,674' where ROUTE_URL like '%http://eisuat.sbi.co.in:3001/IVR/Non_RMN/DOB_Account_bth/enquiry/accounts%';",
-    type: "UPDATE"
+    type: "UPDATE",
   },
 
   // THIRD_PARTY
@@ -388,115 +419,178 @@ const PRESET_QUERIES: PresetQuery[] = [
     category: "THIRD_PARTY",
     title: "Third Party API Master",
     sql: "SELECT * from THIRD_PARTY_API_MASTER order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "tp_2",
     category: "THIRD_PARTY",
     title: "Third Party API Parameters",
     sql: "SELECT * from THIRD_PARTY_API_PARAMETER order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "tp_3",
     category: "THIRD_PARTY",
     title: "Third Party API Access Master",
     sql: "SELECT * from THIRD_PARTY_API_ACCESS_MASTER order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "tp_4",
     category: "THIRD_PARTY",
     title: "Third Party Master Table",
     sql: "SELECT * from THIRD_PARTY order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
 
   // AUDIT & SYSTEM LOGS
   {
     id: "syslog_1",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "Processing Log SI001 Errors",
     sql: "SELECT * from API_PROCESSING_LOG where error_code like '%SI001%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_2",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "Orchestration Enquiry by Entrytime",
     sql: "SELECT * from ORCH_ENQUIRY order by entrytime desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_3",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "Source Mapper EPAY & PAN",
     sql: "SELECT * from source_mapper where APPLICATION_NAME like '%EPAY%' AND route_url like '%PAN%';",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_4",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "DPG Audit Logs",
     sql: "SELECT * from DPG_AUDIT order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_5",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "ATM URN Details NCMC TCP/IP",
     sql: "SELECT * from URN_DETAILS_ATM where SERVICE_NAME like '%NCMC_ATM_TCPIP%' order by CREATION_DATE_TIME desc;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_6",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "Cache Details Distinct Actions",
     sql: "SELECT distinct request_action, response_action, processing_action from cache_details;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_7",
-    category: "AUDIT & SYSTEM LOGS",
-    title: "ATM Inbound & Outbound Streams",
+    category: "AUDIT & SYSTEM",
+    title: "ATM Inbound Stream",
     sql: "SELECT * from ATM_INBOUND fetch first 50 rows only;",
-    type: "SELECT"
+    type: "SELECT",
   },
   {
     id: "syslog_8",
-    category: "AUDIT & SYSTEM LOGS",
+    category: "AUDIT & SYSTEM",
     title: "IHUB Log & Details Lookup",
     sql: "select * from IHUB_API_DETAILS where urn='SBIIH04041120240307124645';",
-    type: "SELECT"
-  }
+    type: "SELECT",
+  },
 ];
 
 const SQL_KEYWORDS = [
-  "SELECT", "FROM", "WHERE", "ORDER BY", "DESC", "ASC", "LIKE", "AND", "OR",
-  "FETCH FIRST", "ROWS ONLY", "GROUP BY", "HAVING", "INSERT INTO", "VALUES",
-  "UPDATE", "SET", "DELETE FROM", "JOIN", "LEFT JOIN", "INNER JOIN", "DISTINCT",
-  "IN", "NOT IN", "BETWEEN", "IS NULL", "IS NOT NULL", "WITH"
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "ORDER BY",
+  "DESC",
+  "ASC",
+  "LIKE",
+  "AND",
+  "OR",
+  "FETCH FIRST",
+  "ROWS ONLY",
+  "GROUP BY",
+  "HAVING",
+  "INSERT INTO",
+  "VALUES",
+  "UPDATE",
+  "SET",
+  "DELETE FROM",
+  "JOIN",
+  "LEFT JOIN",
+  "INNER JOIN",
+  "DISTINCT",
+  "IN",
+  "NOT IN",
+  "BETWEEN",
+  "IS NULL",
+  "IS NOT NULL",
+  "WITH",
 ];
 
 const KNOWN_TABLES = [
-  "API_LOG", "API_DETAILS", "ORCH_API_LOG", "ORCH_API_DETAILS",
-  "BACKEND_LOG", "BACKEND_DETAILS", "CBS_TXN_PARAM", "CACHE_DETAILS",
-  "URL_MAPPER", "SYS_URL_MAPPER", "THIRD_PARTY_API_MASTER", "THIRD_PARTY_API_PARAMETER",
-  "THIRD_PARTY_API_ACCESS_MASTER", "THIRD_PARTY", "API_PROCESSING_LOG",
-  "ORCH_ENQUIRY", "source_mapper", "DPG_AUDIT", "URN_DETAILS_ATM",
-  "ATM_INBOUND", "ATM_OUTBOUND", "IHUB_API_LOG", "IHUB_API_DETAILS"
+  "API_LOG",
+  "API_DETAILS",
+  "ORCH_API_LOG",
+  "ORCH_API_DETAILS",
+  "BACKEND_LOG",
+  "BACKEND_DETAILS",
+  "CBS_TXN_PARAM",
+  "CACHE_DETAILS",
+  "URL_MAPPER",
+  "SYS_URL_MAPPER",
+  "THIRD_PARTY_API_MASTER",
+  "THIRD_PARTY_API_PARAMETER",
+  "THIRD_PARTY_API_ACCESS_MASTER",
+  "THIRD_PARTY",
+  "API_PROCESSING_LOG",
+  "ORCH_ENQUIRY",
+  "source_mapper",
+  "DPG_AUDIT",
+  "URN_DETAILS_ATM",
+  "ATM_INBOUND",
+  "ATM_OUTBOUND",
+  "IHUB_API_LOG",
+  "IHUB_API_DETAILS",
 ];
 
 const KNOWN_COLUMNS = [
-  "URN", "URN_CHILD", "API_NAME", "URL", "LB_URL", "ROUTE_URL", "SYS_URL",
-  "ERROR_CODE", "ERROR_DESCRIPTION", "RESPONSE_STATUS", "SOURCE_ID",
-  "BROKER_EG", "BROKER_NAME", "REQUEST_DATE_TIME", "RESPONSE_DATE_TIME",
-  "CREATION_DATE_TIME", "SOURCE_IP", "EXP_IP", "EXP_PORT", "ACTUAL_ERROR",
-  "DB_BROKER_IP", "DB_APPLICATION_NAME", "FIELD_NAME", "FIELD_VALUE",
-  "REQUEST_ACTION", "RESPONSE_ACTION", "PROCESSING_ACTION", "CR_NO"
+  "URN",
+  "URN_CHILD",
+  "API_NAME",
+  "URL",
+  "LB_URL",
+  "ROUTE_URL",
+  "SYS_URL",
+  "ERROR_CODE",
+  "ERROR_DESCRIPTION",
+  "RESPONSE_STATUS",
+  "SOURCE_ID",
+  "BROKER_EG",
+  "BROKER_NAME",
+  "REQUEST_DATE_TIME",
+  "RESPONSE_DATE_TIME",
+  "CREATION_DATE_TIME",
+  "SOURCE_IP",
+  "EXP_IP",
+  "EXP_PORT",
+  "ACTUAL_ERROR",
+  "DB_BROKER_IP",
+  "DB_APPLICATION_NAME",
+  "FIELD_NAME",
+  "FIELD_VALUE",
+  "REQUEST_ACTION",
+  "RESPONSE_ACTION",
+  "PROCESSING_ACTION",
+  "CR_NO",
 ];
 
-// ── Main Component ───────────────────────────────────────────────────
+// ── Main Production Component ────────────────────────────────────────
 
 export default function TransactionSqlWorkbench() {
   const [environment, setEnvironment] = useState<Environment>("DEV");
@@ -505,26 +599,31 @@ export default function TransactionSqlWorkbench() {
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(null);
+  const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(
+    null
+  );
+  const [activeTargetScope, setActiveTargetScope] =
+    useState<string>("Statement at Cursor");
 
-  // Tabs state: Initialized clean without static responses
+  // Production State: Starts 100% clean without mock rows
   const [tabs, setTabs] = useState<QueryTab[]>([
     {
       id: "tab-1",
       title: "Query 1",
-      query: "SELECT * from API_LOG where URL like '%linkCurrentAccountToUndertaking/create%' order by CREATION_DATE_TIME desc;",
+      query:
+        "SELECT * from API_LOG where URL like '%linkCurrentAccountToUndertaking/create%' order by CREATION_DATE_TIME desc;",
       environment: "DEV",
       isPinned: false,
       status: "IDLE",
       rows: [],
       columns: [],
       rowCount: 0,
-      executionTime: null
-    }
+      executionTime: null,
+    },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
 
-  // Autocomplete state
+  // Autocomplete suggestions
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
@@ -535,7 +634,7 @@ export default function TransactionSqlWorkbench() {
     [tabs, activeTabId]
   );
 
-  // ── Tab Management ───────────────────────────────────────────────────
+  // ── Tab Management ─────────────────────────────────────────────────
 
   const updateActiveTab = (updates: Partial<QueryTab>) => {
     setTabs((prev) =>
@@ -543,19 +642,21 @@ export default function TransactionSqlWorkbench() {
     );
   };
 
-  const handleCreateTab = (initialQuery?: string, title?: string) => {
+  const handleCreateTab = (initialQuery?: string, title?: string): string => {
     const newId = `tab-${Date.now()}`;
     const newTab: QueryTab = {
       id: newId,
       title: title || `Query ${tabs.length + 1}`,
-      query: initialQuery || "SELECT * from API_LOG order by CREATION_DATE_TIME desc;",
+      query:
+        initialQuery ||
+        "SELECT * from API_LOG order by CREATION_DATE_TIME desc;",
       environment,
       isPinned: false,
       status: "IDLE",
       rows: [],
       columns: [],
       rowCount: 0,
-      executionTime: null
+      executionTime: null,
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
@@ -564,7 +665,7 @@ export default function TransactionSqlWorkbench() {
 
   const handleCloseTab = (tabIdToClose: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (tabs.length === 1) return; // Keep at least one tab
+    if (tabs.length === 1) return;
 
     const newTabs = tabs.filter((t) => t.id !== tabIdToClose);
     setTabs(newTabs);
@@ -579,7 +680,27 @@ export default function TransactionSqlWorkbench() {
     );
   };
 
-  // ── Autocomplete Logic ───────────────────────────────────────────────
+  // ── Cursor Position & Target Query Inspection ──────────────────────
+
+  const handleEditorCursorInspect = () => {
+    if (!editorRef.current) return;
+    const { selectionStart, selectionEnd } = editorRef.current;
+    const target = extractTargetQuery(
+      activeTab.query,
+      selectionStart,
+      selectionEnd
+    );
+
+    if (target.type === "SELECTION") {
+      setActiveTargetScope("Selected Fragment");
+    } else if (target.type === "AT_CURSOR") {
+      setActiveTargetScope("Statement at Cursor");
+    } else {
+      setActiveTargetScope("Full Buffer");
+    }
+  };
+
+  // ── Autocomplete Logic ─────────────────────────────────────────────
 
   const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -593,16 +714,16 @@ export default function TransactionSqlWorkbench() {
     if (currentWord.length >= 2) {
       const upperWord = currentWord.toUpperCase();
 
-      const matchedKeywords: AutocompleteSuggestion[] = SQL_KEYWORDS.filter((k) =>
-        k.startsWith(upperWord)
+      const matchedKeywords: AutocompleteSuggestion[] = SQL_KEYWORDS.filter(
+        (k) => k.startsWith(upperWord)
       ).map((k) => ({ text: k, type: "KEYWORD" }));
 
-      const matchedTables: AutocompleteSuggestion[] = KNOWN_TABLES.filter((tbl) =>
-        tbl.toUpperCase().includes(upperWord)
+      const matchedTables: AutocompleteSuggestion[] = KNOWN_TABLES.filter(
+        (tbl) => tbl.toUpperCase().includes(upperWord)
       ).map((tbl) => ({ text: tbl, type: "TABLE" }));
 
-      const matchedColumns: AutocompleteSuggestion[] = KNOWN_COLUMNS.filter((col) =>
-        col.toUpperCase().includes(upperWord)
+      const matchedColumns: AutocompleteSuggestion[] = KNOWN_COLUMNS.filter(
+        (col) => col.toUpperCase().includes(upperWord)
       ).map((col) => ({ text: col, type: "COLUMN" }));
 
       const matchedPresets: AutocompleteSuggestion[] = PRESET_QUERIES.filter(
@@ -614,14 +735,14 @@ export default function TransactionSqlWorkbench() {
         .map((p) => ({
           text: p.sql,
           title: p.title,
-          type: "PRESET"
+          type: "PRESET",
         }));
 
       const combined = [
         ...matchedPresets,
         ...matchedTables,
         ...matchedKeywords,
-        ...matchedColumns
+        ...matchedColumns,
       ].slice(0, 8);
 
       if (combined.length > 0) {
@@ -659,7 +780,9 @@ export default function TransactionSqlWorkbench() {
     setShowSuggestions(false);
   };
 
-  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleEditorKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>
+  ) => {
     if (showSuggestions && suggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -691,24 +814,45 @@ export default function TransactionSqlWorkbench() {
     }
   };
 
-  // ── Query Execution with Pin Protection ──────────────────────────────
+  // ── Query Execution with Pin Protection ────────────────────────────
 
-  const handleExecuteQuery = async (forcedQuery?: string, runInNewTab = false) => {
-    const rawSql = (forcedQuery || activeTab.query).trim();
-    if (!rawSql) return;
+  const handleExecuteQuery = async (
+    forcedQuery?: string,
+    runInNewTab = false
+  ) => {
+    let rawSql = "";
 
-    // RBAC validation check on frontend before dispatch
+    if (forcedQuery) {
+      rawSql = forcedQuery.trim();
+    } else if (editorRef.current) {
+      const { selectionStart, selectionEnd } = editorRef.current;
+      const detected = extractTargetQuery(
+        activeTab.query,
+        selectionStart,
+        selectionEnd
+      );
+      rawSql = detected.query;
+    } else {
+      rawSql = activeTab.query.trim();
+    }
+
+    if (!rawSql) {
+      updateActiveTab({
+        status: "FAILED",
+        errorMessage: "No executable SQL statement found at cursor location.",
+      });
+      return;
+    }
+
+    // Role-Based Guardrails
     const upper = rawSql.toUpperCase();
     const isSelect = upper.startsWith("SELECT") || upper.startsWith("WITH");
-    const isDml =
-      upper.startsWith("INSERT") ||
-      upper.startsWith("UPDATE") ||
-      upper.startsWith("DELETE");
 
     if (role !== "MASTER_ADMIN" && !isSelect) {
       updateActiveTab({
         status: "FAILED",
-        errorMessage: "Access Denied: Standard users only have read (SELECT/WITH) access."
+        errorMessage:
+          "Access Denied: Standard users are restricted to read-only queries (SELECT / WITH). Switch to Master Admin to execute DML.",
       });
       return;
     }
@@ -720,20 +864,23 @@ export default function TransactionSqlWorkbench() {
     ) {
       updateActiveTab({
         status: "FAILED",
-        errorMessage: "Dangerous DDL statement blocked by security policy."
+        errorMessage:
+          "Destructive DDL statements (DROP, TRUNCATE, ALTER) are permanently restricted.",
       });
       return;
     }
 
-    // Tab Pinning Decision: If current tab is pinned or runInNewTab requested, spawn new tab
+    // Target Tab Determination: If current tab is pinned or runInNewTab is requested, fork to new tab
     let targetTabId = activeTabId;
     if (runInNewTab || activeTab.isPinned) {
-      const generatedTitle =
-        rawSql.length > 20 ? rawSql.slice(0, 20) + "..." : rawSql;
-      targetTabId = handleCreateTab(rawSql, generatedTitle);
+      const cleanTitle =
+        rawSql.length > 24
+          ? rawSql.slice(0, 24).replace(/\s+/g, " ") + "..."
+          : rawSql;
+      targetTabId = handleCreateTab(rawSql, cleanTitle);
     }
 
-    // Set target tab loading state
+    // Set Loading State
     setTabs((prev) =>
       prev.map((t) =>
         t.id === targetTabId
@@ -742,7 +889,7 @@ export default function TransactionSqlWorkbench() {
               status: "LOADING",
               query: rawSql,
               environment,
-              errorMessage: undefined
+              errorMessage: undefined,
             }
           : t
       )
@@ -758,8 +905,8 @@ export default function TransactionSqlWorkbench() {
           query: rawSql,
           maxRow: 100,
           environment,
-          role
-        })
+          role,
+        }),
       });
 
       const data = await response.json();
@@ -768,15 +915,16 @@ export default function TransactionSqlWorkbench() {
 
       if (!response.ok || data.status === "FAILED" || data.success === false) {
         throw new Error(
-          data.errorMessage || data.error || "Query execution failed."
+          data.errorMessage ||
+            data.error ||
+            `HTTP ${response.status}: Query execution failed.`
         );
       }
 
       const rows: Record<string, any>[] = Array.isArray(data.rows)
         ? data.rows
         : [];
-      const columns =
-        rows.length > 0 ? Object.keys(rows[0]) : [];
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
       setTabs((prev) =>
         prev.map((t) =>
@@ -788,7 +936,6 @@ export default function TransactionSqlWorkbench() {
                 columns,
                 rowCount: data.metadata?.rowCount ?? rows.length,
                 executionTime: data.metadata?.executionTime ?? calcDuration,
-                rawResponse: data
               }
             : t
         )
@@ -800,9 +947,9 @@ export default function TransactionSqlWorkbench() {
             ? {
                 ...t,
                 status: "FAILED",
-                errorMessage: err.message || "Failed to execute query.",
+                errorMessage: err.message || "Failed to dispatch query.",
                 rows: [],
-                columns: []
+                columns: [],
               }
             : t
         )
@@ -810,7 +957,7 @@ export default function TransactionSqlWorkbench() {
     }
   };
 
-  // ── Filtered Catalog Categories ──────────────────────────────────────
+  // ── Filtered Preset Categories ─────────────────────────────────────
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(PRESET_QUERIES.map((p) => p.category)));
@@ -829,7 +976,7 @@ export default function TransactionSqlWorkbench() {
     });
   }, [activeCategory, catalogSearch]);
 
-  // ── Filtered Table Rows ──────────────────────────────────────────────
+  // ── Filtered Table Rows ────────────────────────────────────────────
 
   const filteredRows = useMemo(() => {
     if (!searchTerm.trim()) return activeTab.rows;
@@ -842,39 +989,33 @@ export default function TransactionSqlWorkbench() {
   }, [activeTab.rows, searchTerm]);
 
   return (
-    <div className="flex h-screen w-full flex-col bg-[#070b16] font-sans text-slate-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
-      {/* ── Top Header Bar ──────────────────────────────────────────── */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#1e2a47] bg-[#0c1222] px-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-blue-700 shadow-lg shadow-indigo-600/20">
-            <Database className="h-5 w-5 text-white" />
+    <div className="flex h-full w-full flex-col bg-[#070b16] font-sans text-slate-100 antialiased overflow-hidden">
+      {/* ── Sub-Header Bar (Environments, Role, Presets Toggle) ────── */}
+      <div className="shrink-0 flex items-center justify-between border-b border-[#1e2a47] bg-[#0c1222] px-4 py-2.5 gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600/30 border border-indigo-500/40">
+            <Database className="h-4 w-4 text-indigo-400" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-white text-base">
-                DV & SQL Workbench
-              </span>
-              <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-indigo-400">
-                PROD-READY
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Interactive Enterprise Query Engine &amp; Middleware Inspector
-            </p>
-          </div>
+          <span className="font-semibold text-xs text-slate-200">
+            ODBC Query Console
+          </span>
+          <span className="text-[10px] text-slate-500 hidden sm:inline">
+            (Ctrl + Enter to execute statement)
+          </span>
         </div>
 
-        {/* Global Controls: Environment & Role Selectors */}
-        <div className="flex items-center gap-3">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5">
           {/* Environment Selector */}
-          <div className="flex items-center rounded-xl border border-[#1e2a47] bg-[#090e1c] p-1">
+          <div className="flex items-center rounded-lg border border-[#1e2a47] bg-[#070b16] p-0.5">
             {(["DEV", "SIT", "UAT"] as Environment[]).map((env) => (
               <button
                 key={env}
+                type="button"
                 onClick={() => setEnvironment(env)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
                   environment === env
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    ? "bg-indigo-600 text-white shadow-sm"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -884,155 +1025,135 @@ export default function TransactionSqlWorkbench() {
             ))}
           </div>
 
-          {/* Role Switcher */}
-          <div className="flex items-center rounded-xl border border-[#1e2a47] bg-[#090e1c] p-1">
-            <button
-              onClick={() => setRole("USER")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                role === "USER"
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Standard User
-            </button>
-            <button
-              onClick={() => setRole("MASTER_ADMIN")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                role === "MASTER_ADMIN"
-                  ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Master Admin
-            </button>
-          </div>
-
-          {/* Catalog Drawer Trigger */}
+          {/* Role Toggle */}
           <button
-            onClick={() => setCatalogOpen(!catalogOpen)}
-            className="flex items-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3.5 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/50 hover:text-white transition-all shadow-sm"
+            type="button"
+            onClick={() =>
+              setRole(role === "USER" ? "MASTER_ADMIN" : "USER")
+            }
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+              role === "MASTER_ADMIN"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                : "border-[#1e2a47] bg-[#070b16] text-slate-400 hover:text-slate-200"
+            }`}
           >
-            <BookOpen className="h-4 w-4 text-indigo-400" />
-            <span>Preset Catalog ({PRESET_QUERIES.length})</span>
+            <ShieldCheck className="h-3 w-3" />
+            <span>
+              {role === "MASTER_ADMIN" ? "Master Admin" : "User (Read-only)"}
+            </span>
+          </button>
+
+          {/* Preset Catalog Button */}
+          <button
+            type="button"
+            onClick={() => setCatalogOpen(!catalogOpen)}
+            className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-950/40 px-3 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-900/50 hover:text-white transition-all cursor-pointer"
+          >
+            <BookOpen className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Presets ({PRESET_QUERIES.length})</span>
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* ── Main Workbench Workspace ───────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left / Primary Workspace: Editor + Pinned Results Grid */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Query Editor & Controls Bar */}
-          <div className="border-b border-[#1e2a47] bg-[#0c1222] p-4">
-            <div className="relative mb-3">
-              <div className="flex items-center justify-between pb-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Terminal className="h-4 w-4 text-indigo-400" />
-                  <span>SQL Query Editor</span>
-                  <span className="text-slate-500 font-normal">
-                    (Auto-suggest enabled, press Ctrl + Enter to run)
-                  </span>
-                </div>
-                {role === "MASTER_ADMIN" ? (
-                  <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
-                    DML (INSERT/UPDATE/DELETE) UNLOCKED
-                  </span>
-                ) : (
-                  <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-                    READ-ONLY (SELECT/WITH ONLY)
-                  </span>
-                )}
-              </div>
+      {/* ── Main Workspace: Layout Locked Inside Monitor Viewport ───── */}
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+        {/* Left Column: Fixed Editor + Independently Scrollable Table */}
+        <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+          {/* 1. Query Editor (Fixed height, shrink-0) */}
+          <div className="shrink-0 border-b border-[#1e2a47] bg-[#0c1222] p-3">
+            <div className="relative">
+              <textarea
+                ref={editorRef}
+                value={activeTab.query}
+                onChange={handleEditorChange}
+                onKeyDown={handleEditorKeyDown}
+                onSelect={handleEditorCursorInspect}
+                onClick={handleEditorCursorInspect}
+                onKeyUp={handleEditorCursorInspect}
+                placeholder="Type your SQL query or multiple statements separated by semicolons (;)..."
+                rows={3}
+                className="w-full resize-none rounded-xl border border-[#1e2a47] bg-[#070b16] p-2.5 font-mono text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+              />
 
-              {/* Textarea with intelligent autocomplete */}
-              <div className="relative">
-                <textarea
-                  ref={editorRef}
-                  value={activeTab.query}
-                  onChange={handleEditorChange}
-                  onKeyDown={handleEditorKeyDown}
-                  placeholder="Type your SQL query here (e.g. SELECT * FROM API_LOG WHERE...)"
-                  rows={4}
-                  className="w-full resize-y rounded-xl border border-[#1e2a47] bg-[#070b16] p-3 font-mono text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                />
-
-                {/* Autocomplete Popup */}
-                {showSuggestions && (
-                  <div className="absolute left-4 top-full z-50 mt-1 max-h-60 w-96 overflow-y-auto rounded-xl border border-[#1e2a47] bg-[#0f172a] p-1.5 shadow-2xl backdrop-blur-md">
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Suggestions (↑↓ to navigate, Enter/Tab to select)
+              {/* Autocomplete Popup */}
+              {showSuggestions && (
+                <div className="absolute left-2 top-full z-50 mt-1 max-h-48 w-80 overflow-y-auto rounded-xl border border-[#1e2a47] bg-[#0f172a] p-1 shadow-2xl backdrop-blur-md">
+                  {suggestions.map((s, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => applySuggestion(s)}
+                      className={`flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1 text-xs ${
+                        idx === selectedSuggestionIndex
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      <span className="font-mono truncate">
+                        {s.title || s.text}
+                      </span>
+                      <span className="text-[9px] uppercase text-slate-400">
+                        {s.type}
+                      </span>
                     </div>
-                    {suggestions.map((s, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => applySuggestion(s)}
-                        className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-1.5 text-xs transition-colors ${
-                          idx === selectedSuggestionIndex
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-300 hover:bg-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <Sparkles className="h-3 w-3 shrink-0 text-indigo-400" />
-                          <span className="font-mono font-medium truncate">
-                            {s.title || s.text}
-                          </span>
-                        </div>
-                        <span className="rounded bg-slate-900/60 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-slate-400">
-                          {s.type}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between">
+            <div className="mt-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => handleExecuteQuery(undefined, false)}
                   disabled={activeTab.status === "LOADING"}
-                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  <Play className="h-3.5 w-3.5 fill-current" />
+                  <Play className="h-3 w-3 fill-current" />
                   <span>
                     {activeTab.status === "LOADING"
                       ? "Executing..."
-                      : "Execute Query"}
+                      : "Execute"}
                   </span>
                 </button>
 
+                {/* Scope Target Identifier */}
+                <span className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-950/40 px-2 py-1 font-mono text-[11px] text-indigo-300">
+                  <Sparkles className="h-3 w-3 text-indigo-400" />
+                  Target:{" "}
+                  <span className="font-semibold text-white">
+                    {activeTargetScope}
+                  </span>
+                </span>
+
                 <button
+                  type="button"
                   onClick={() => handleExecuteQuery(undefined, true)}
                   disabled={activeTab.status === "LOADING"}
-                  className="flex items-center gap-2 rounded-xl border border-[#1e2a47] bg-[#090e1c] px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                  className="flex items-center gap-1 rounded-lg border border-[#1e2a47] bg-[#070b16] px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-3 w-3" />
                   <span>Run in New Tab</span>
                 </button>
 
                 <CopyButton
                   text={activeTab.query}
                   label="Copy SQL"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#1e2a47] bg-[#090e1c] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#1e2a47] bg-[#070b16] px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
                 />
               </div>
 
-              {/* Status Indicator */}
+              {/* Real-time Telemetry Metrics */}
               <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
                 {activeTab.executionTime !== null && (
                   <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5 text-indigo-400" />
+                    <Clock className="h-3 w-3 text-indigo-400" />
                     <span>{activeTab.executionTime}s</span>
                   </span>
                 )}
                 {activeTab.rowCount > 0 && (
                   <span className="flex items-center gap-1">
-                    <Layers className="h-3.5 w-3.5 text-indigo-400" />
+                    <Layers className="h-3 w-3 text-indigo-400" />
                     <span>{activeTab.rowCount} rows</span>
                   </span>
                 )}
@@ -1040,85 +1161,84 @@ export default function TransactionSqlWorkbench() {
             </div>
           </div>
 
-          {/* ── Multi-Tab Results Header ───────────────────────────── */}
-          <div className="flex items-center justify-between border-b border-[#1e2a47] bg-[#090e1c] px-4 py-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {/* 2. Pinned Multi-Tab Switcher Bar (Fixed height, shrink-0) */}
+          <div className="shrink-0 flex items-center justify-between border-b border-[#1e2a47] bg-[#090e1c] px-3 py-1.5">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
               {tabs.map((tab) => {
                 const isActive = tab.id === activeTabId;
                 return (
                   <div
                     key={tab.id}
                     onClick={() => setActiveTabId(tab.id)}
-                    className={`group flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-all ${
                       isActive
-                        ? "border-indigo-500/50 bg-[#111a2e] text-white shadow-sm"
-                        : "border-transparent bg-transparent text-slate-400 hover:bg-[#0c1222] hover:text-slate-200"
+                        ? "border-indigo-500/50 bg-[#111a2e] text-white"
+                        : "border-transparent text-slate-400 hover:bg-[#0c1222] hover:text-slate-200"
                     }`}
                   >
-                    {/* Pin status icon */}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         togglePin(tab.id);
                       }}
                       title={
                         tab.isPinned
-                          ? "Pinned: New queries will open in a new tab"
+                          ? "Pinned: Submitting a query will fork to a new tab"
                           : "Pin tab to protect results"
                       }
-                      className="text-slate-400 hover:text-indigo-400 transition-colors"
+                      className="text-slate-400 hover:text-indigo-400"
                     >
                       {tab.isPinned ? (
-                        <Pin className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                        <Pin className="h-3 w-3 text-amber-400 fill-amber-400" />
                       ) : (
-                        <PinOff className="h-3.5 w-3.5 opacity-40 hover:opacity-100" />
+                        <PinOff className="h-3 w-3 opacity-40 hover:opacity-100" />
                       )}
                     </button>
-
-                    <span className="max-w-[120px] truncate">{tab.title}</span>
-
+                    <span className="max-w-[100px] truncate">{tab.title}</span>
                     {tab.rowCount > 0 && (
-                      <span className="rounded bg-[#1e2a47] px-1.5 py-0.2 text-[10px] text-slate-300">
+                      <span className="rounded bg-[#1e2a47] px-1 text-[10px] text-slate-300">
                         {tab.rowCount}
                       </span>
                     )}
-
                     {tabs.length > 1 && (
                       <button
+                        type="button"
                         onClick={(e) => handleCloseTab(tab.id, e)}
-                        className="rounded p-0.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+                        className="rounded p-0.5 text-slate-500 hover:text-slate-200"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-2.5 w-2.5" />
                       </button>
                     )}
                   </div>
                 );
               })}
-
               <button
+                type="button"
                 onClick={() => handleCreateTab()}
                 title="Create empty query tab"
-                className="flex items-center rounded-lg border border-dashed border-[#1e2a47] p-1.5 text-slate-400 hover:border-slate-500 hover:text-white transition-all"
+                className="rounded border border-dashed border-[#1e2a47] p-1 text-slate-400 hover:text-white cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-3 w-3" />
               </button>
             </div>
 
-            {/* Quick table search & export */}
+            {/* In-Memory Search & CSV Export */}
             {activeTab.rows.length > 0 && (
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                  <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search visible results..."
-                    className="w-48 rounded-lg border border-[#1e2a47] bg-[#070b16] py-1 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500"
+                    placeholder="Search results..."
+                    className="w-36 rounded-md border border-[#1e2a47] bg-[#070b16] py-0.5 pl-7 pr-2 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     const csvContent =
                       "data:text/csv;charset=utf-8," +
@@ -1126,20 +1246,26 @@ export default function TransactionSqlWorkbench() {
                         activeTab.columns.join(","),
                         ...activeTab.rows.map((r) =>
                           activeTab.columns
-                            .map((c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`)
+                            .map(
+                              (c) =>
+                                `"${String(r[c] ?? "").replace(/"/g, '""')}"`
+                            )
                             .join(",")
-                        )
+                        ),
                       ].join("\n");
                     const encodedUri = encodeURI(csvContent);
                     const link = document.createElement("a");
                     link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `query_results_${Date.now()}.csv`);
+                    link.setAttribute(
+                      "download",
+                      `query_export_${Date.now()}.csv`
+                    );
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                   }}
                   title="Export results to CSV"
-                  className="flex items-center gap-1 rounded-lg border border-[#1e2a47] bg-[#070b16] px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                  className="flex items-center gap-1 rounded border border-[#1e2a47] bg-[#070b16] px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
                 >
                   <Download className="h-3 w-3" />
                   <span>CSV</span>
@@ -1148,42 +1274,42 @@ export default function TransactionSqlWorkbench() {
             )}
           </div>
 
-          {/* ── Active Tab Content / Dynamic Table View ─────────────── */}
-          <div className="flex-1 overflow-auto bg-[#070b16] p-4">
+          {/* 3. DEDICATED SCROLL CONTAINER FOR THE TABLE (The ONLY scrolling view) */}
+          <div className="flex-1 min-h-0 w-full overflow-hidden p-3 bg-[#070b16]">
             {activeTab.status === "LOADING" ? (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
-                <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
-                <p className="text-sm font-medium">
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
+                <RefreshCw className="h-6 w-6 animate-spin text-indigo-500" />
+                <p className="text-xs font-medium">
                   Dispatching query across {activeTab.environment} broker...
                 </p>
               </div>
             ) : activeTab.status === "FAILED" ? (
-              <div className="m-auto max-w-xl rounded-2xl border border-red-500/30 bg-red-950/20 p-6 text-center">
-                <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-400" />
-                <h3 className="text-base font-bold text-red-200">
+              <div className="m-auto max-w-md rounded-xl border border-red-500/30 bg-red-950/20 p-4 text-center">
+                <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-red-400" />
+                <h4 className="text-xs font-bold text-red-200">
                   Execution Error
-                </h3>
-                <p className="mt-2 text-xs font-mono text-red-300 whitespace-pre-wrap">
+                </h4>
+                <p className="mt-1 text-xs font-mono text-red-300 whitespace-pre-wrap">
                   {activeTab.errorMessage}
                 </p>
               </div>
             ) : filteredRows.length > 0 ? (
-              <div className="overflow-x-auto rounded-xl border border-[#1e2a47] bg-[#0c1222]">
+              <div className="h-full w-full overflow-auto rounded-xl border border-[#1e2a47] bg-[#0c1222] shadow-inner">
                 <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                  <thead className="sticky top-0 z-10 bg-[#090e1c] text-slate-400 border-b border-[#1e2a47]">
+                  <thead className="sticky top-0 z-20 bg-[#090e1c] text-slate-400 border-b border-[#1e2a47]">
                     <tr>
-                      <th className="py-2.5 px-3 font-semibold text-slate-500 w-12 text-center">
+                      <th className="py-2 px-3 font-semibold text-slate-500 w-10 text-center bg-[#090e1c]">
                         #
                       </th>
                       {activeTab.columns.map((col) => (
                         <th
                           key={col}
-                          className="py-2.5 px-3 font-mono font-semibold text-slate-300 whitespace-nowrap"
+                          className="py-2 px-3 font-mono font-semibold text-slate-300 whitespace-nowrap bg-[#090e1c]"
                         >
                           {col}
                         </th>
                       ))}
-                      <th className="py-2.5 px-3 font-semibold text-right">
+                      <th className="py-2 px-3 font-semibold text-right bg-[#090e1c]">
                         Actions
                       </th>
                     </tr>
@@ -1193,9 +1319,9 @@ export default function TransactionSqlWorkbench() {
                       <tr
                         key={idx}
                         onClick={() => setSelectedRow(row)}
-                        className="group hover:bg-[#111a2e]/60 transition-colors cursor-pointer"
+                        className="group hover:bg-[#111a2e]/70 transition-colors cursor-pointer"
                       >
-                        <td className="py-2 px-3 text-slate-600 text-center select-none font-sans">
+                        <td className="py-1.5 px-3 text-slate-600 text-center select-none font-sans">
                           {idx + 1}
                         </td>
                         {activeTab.columns.map((col) => {
@@ -1210,7 +1336,7 @@ export default function TransactionSqlWorkbench() {
                           return (
                             <td
                               key={col}
-                              className="relative py-2 px-3 whitespace-nowrap max-w-xs truncate group/cell"
+                              className="relative py-1.5 px-3 whitespace-nowrap max-w-xs truncate group/cell"
                             >
                               <span
                                 className={
@@ -1222,28 +1348,29 @@ export default function TransactionSqlWorkbench() {
                                 {strVal}
                               </span>
 
-                              {/* On-hover instant cell copy button */}
+                              {/* Hover-activated cell copy button */}
                               {val !== null && (
-                                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity bg-[#0c1222]/90 rounded pl-1">
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity bg-[#0c1222] rounded pl-1">
                                   <CopyButton
                                     text={strVal}
                                     label=""
-                                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                                    className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
                                   />
                                 </div>
                               )}
                             </td>
                           );
                         })}
-                        <td className="py-2 px-3 text-right">
+                        <td className="py-1.5 px-3 text-right">
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedRow(row);
                             }}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                            className="rounded p-1 text-slate-400 hover:text-white"
                           >
-                            <Maximize2 className="h-3.5 w-3.5" />
+                            <Maximize2 className="h-3 w-3" />
                           </button>
                         </td>
                       </tr>
@@ -1252,56 +1379,63 @@ export default function TransactionSqlWorkbench() {
                 </table>
               </div>
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500">
-                <FileCode className="h-10 w-10 text-slate-600" />
-                <p className="text-sm font-medium">No results to display.</p>
-                <p className="text-xs text-slate-600">
-                  Select a query from the preset catalog or type a query and click Execute.
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-500">
+                <FileCode className="h-8 w-8 text-slate-600" />
+                <p className="text-xs font-medium">No results to display.</p>
+                <p className="text-[11px] text-slate-600">
+                  Select a query from the preset library or enter SQL and click
+                  Execute.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Right Panel: Preset Queries Catalog Drawer ────────────── */}
+        {/* ── Preset Catalog Drawer (Fixed Height Sidebar) ─────────── */}
         {catalogOpen && (
-          <aside className="flex w-96 shrink-0 flex-col border-l border-[#1e2a47] bg-[#0c1222] transition-all">
-            <div className="flex items-center justify-between border-b border-[#1e2a47] p-4">
+          <aside className="w-96 shrink-0 border-l border-[#1e2a47] bg-[#0c1222] flex flex-col h-full z-20 shadow-2xl overflow-hidden">
+            {/* Drawer Header */}
+            <div className="shrink-0 flex items-center justify-between border-b border-[#1e2a47] p-3.5 bg-[#090e1c]">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-indigo-400" />
-                <h2 className="text-sm font-bold text-white">Preset SQL Library</h2>
+                <h2 className="text-xs font-bold text-white tracking-wide uppercase">
+                  Preset SQL Library ({PRESET_QUERIES.length})
+                </h2>
               </div>
               <button
+                type="button"
                 onClick={() => setCatalogOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+                title="Close catalog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Catalog Filter Controls */}
-            <div className="border-b border-[#1e2a47] p-3 space-y-2">
+            {/* Filter Search & Category Navigation */}
+            <div className="shrink-0 border-b border-[#1e2a47] p-3 space-y-2 bg-[#0c1222]">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
                 <input
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
-                  placeholder="Filter presets..."
-                  className="w-full rounded-lg border border-[#1e2a47] bg-[#070b16] py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500"
+                  placeholder="Search preset name or SQL..."
+                  className="w-full rounded-lg border border-[#1e2a47] bg-[#070b16] py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500 transition-all"
                 />
               </div>
 
               {/* Category Pills */}
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                 {categories.map((cat) => (
                   <button
+                    type="button"
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
-                    className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                    className={`shrink-0 rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase transition-all cursor-pointer ${
                       activeCategory === cat
-                        ? "bg-indigo-600 text-white"
-                        : "bg-[#090e1c] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-[#070b16] border border-[#1e2a47] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                     }`}
                   >
                     {cat}
@@ -1310,77 +1444,96 @@ export default function TransactionSqlWorkbench() {
               </div>
             </div>
 
-            {/* Presets List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-              {filteredPresets.map((preset) => (
-                <div
-                  key={preset.id}
-                  className="group rounded-xl border border-[#1e2a47] bg-[#0f172a] p-3 hover:border-indigo-500/50 hover:bg-[#111a2e] transition-all"
-                >
-                  <div className="flex items-center justify-between pb-1.5">
-                    <span className="font-semibold text-slate-200 text-xs">
-                      {preset.title}
-                    </span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                        preset.type === "SELECT"
-                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                          : preset.type === "INSERT"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {preset.type}
-                    </span>
-                  </div>
-
-                  <p className="font-mono text-[11px] text-slate-400 line-clamp-2 bg-[#070b16] p-2 rounded-lg border border-[#1e2a47]/50 mb-2">
-                    {preset.sql}
-                  </p>
-
-                  <div className="flex items-center justify-end gap-2">
-                    <CopyButton
-                      text={preset.sql}
-                      label=""
-                      className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    />
-
-                    <button
-                      onClick={() => updateActiveTab({ query: preset.sql })}
-                      className="rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
-                    >
-                      Load
-                    </button>
-
-                    <button
-                      onClick={() => handleExecuteQuery(preset.sql, true)}
-                      className="flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 shadow-sm"
-                    >
-                      <Play className="h-2.5 w-2.5 fill-current" />
-                      <span>Run</span>
-                    </button>
-                  </div>
+            {/* Preset Cards List */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 bg-[#070b16]/50">
+              {filteredPresets.length === 0 ? (
+                <div className="flex h-40 flex-col items-center justify-center text-center text-slate-500">
+                  <p className="text-xs">No matching queries found.</p>
                 </div>
-              ))}
+              ) : (
+                filteredPresets.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="group rounded-xl border border-[#1e2a47] bg-[#0f172a] p-3 hover:border-indigo-500/50 hover:bg-[#111a2e] transition-all shadow-sm"
+                  >
+                    <div className="flex items-center justify-between pb-1.5">
+                      <span className="font-semibold text-slate-200 text-xs truncate max-w-[200px]">
+                        {preset.title}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                          preset.type === "SELECT"
+                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                            : preset.type === "INSERT"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}
+                      >
+                        {preset.type}
+                      </span>
+                    </div>
+
+                    <p className="font-mono text-[11px] text-slate-300 line-clamp-3 bg-[#070b16] p-2 rounded-lg border border-[#1e2a47]/60 mb-2.5 select-all break-all whitespace-pre-wrap">
+                      {preset.sql}
+                    </p>
+
+                    <div className="flex items-center justify-end gap-1.5">
+                      <CopyButton
+                        text={preset.sql}
+                        label="Copy"
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#1e2a47] bg-[#090e1c] px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateActiveTab({ query: preset.sql });
+                          setCatalogOpen(false);
+                        }}
+                        className="rounded-lg border border-[#1e2a47] bg-[#090e1c] px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                        title="Load SQL into active editor tab"
+                      >
+                        Load
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleExecuteQuery(preset.sql, true);
+                          setCatalogOpen(false);
+                        }}
+                        className="flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 shadow-sm transition-all cursor-pointer"
+                        title="Run query immediately in a new tab"
+                      >
+                        <Play className="h-2.5 w-2.5 fill-current" />
+                        <span>Run</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </aside>
         )}
       </div>
 
-      {/* ── Row Details Modal Drawer ───────────────────────────────── */}
+      {/* ── Record Detail Modal Inspector ──────────────────────────── */}
       {selectedRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm">
           <div className="flex h-full w-full max-w-2xl flex-col border-l border-[#1e2a47] bg-[#0c1222] shadow-2xl animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between border-b border-[#1e2a47] p-5">
               <div>
-                <h3 className="text-base font-bold text-white">Record Inspector</h3>
+                <h3 className="text-base font-bold text-white">
+                  Record Inspector
+                </h3>
                 <p className="text-xs text-slate-400">
                   Full column-by-column key-value breakdown
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedRow(null)}
-                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
